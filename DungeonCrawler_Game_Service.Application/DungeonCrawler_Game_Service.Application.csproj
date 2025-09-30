@@ -11,4 +11,9 @@
       <Folder Include="Services\" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\DungeonCrawler_Game_Service.Domain\DungeonCrawler_Game_Service.Domain.csproj" />
+      <ProjectReference Include="..\DungeonCrawler_Game_Service.Infrastructure\DungeonCrawler_Game_Service.Infrastructure.csproj" />
+    </ItemGroup>
+
 </Project>
