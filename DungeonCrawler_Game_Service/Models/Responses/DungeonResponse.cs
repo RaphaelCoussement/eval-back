@@ -1,0 +1,13 @@
+namespace DungeonCrawler_Game_Service.Models.Responses;
+
+public class DungeonResponse
+{
+    public string Id { get; set; }
+    public List<LevelResponse> Levels { get; set; } = new();
+}
+
+public class LevelResponse
+{
+    public int Number { get; set; }
+    public List<RoomResponse> Rooms { get; set; } = new();
+}

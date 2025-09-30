@@ -1,40 +1,29 @@
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
-using MapsterMapper;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 
 namespace DungeonCrawler_Game_Service.Infrastructure.Repositories;
 
-public class UnitOfWork<TDbContext> : IUnitOfWork where TDbContext : DbContext
+public class MongoUnitOfWork : IUnitOfWork
 {
-    private readonly DbContext _context;
+    private readonly IMongoDatabase _database;
     private readonly Dictionary<Type, object> _repositories = new();
 
-    public UnitOfWork(TDbContext context, IMapper mapper)
+    public MongoUnitOfWork(IMongoDatabase database)
     {
-        _context = context;
-        _repositories = new();
+        _database = database;
     }
 
     public IRepository<TEntity> GetRepository<TEntity>() where TEntity : class
     {
         var type = typeof(TEntity);
-
         if (_repositories.ContainsKey(type))
             return (IRepository<TEntity>)_repositories[type];
 
-        var repositoryInstance = new GenericRepository<TEntity>(_context);
-        _repositories[type] = repositoryInstance;
-
-        return repositoryInstance;
+        var collectionName = typeof(TEntity).Name + "s";
+        var repo = new MongoRepository<TEntity>(_database, collectionName);
+        _repositories[type] = repo;
+        return repo;
     }
 
-    public async Task<int> SaveChangesAsync()
-    {
-        return await _context.SaveChangesAsync();
-    }
-
-    public void Dispose()
-    {
-        _context.Dispose();
-    }
+    public void Dispose() { }
 }
