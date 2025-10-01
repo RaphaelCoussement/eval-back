@@ -13,4 +13,8 @@
       <PackageReference Include="MongoDB.Driver" Version="3.5.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\DungeonCrawler_Game_Service.Domain\DungeonCrawler_Game_Service.Domain.csproj" />
+    </ItemGroup>
+
 </Project>
