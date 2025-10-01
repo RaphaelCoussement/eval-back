@@ -30,6 +30,8 @@ builder.Services.AddScoped<IUnitOfWork, MongoUnitOfWork>();
 
 // DungeonService scoped
 builder.Services.AddScoped<IDungeonService, DungeonService>();
+// CharacterService scoped
+builder.Services.AddScoped<ICharacterService, CharacterService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
