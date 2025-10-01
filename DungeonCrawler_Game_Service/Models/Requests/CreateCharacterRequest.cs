@@ -15,4 +15,9 @@ public class CreateCharacterRequest
     /// </summary>
     public int ClassCode { get; set; } 
     
+    /// <summary>
+    /// L'identifiant de l'utilisateur Keycloak (UUID Keycloak).
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+    
 }

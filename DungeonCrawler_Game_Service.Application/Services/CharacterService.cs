@@ -8,26 +8,21 @@ public class CharacterService(
     IUnitOfWork unitOfWork
     ) : ICharacterService
 {
-    private readonly IRepository<CharacterDao> _characterRepository = unitOfWork.GetRepository<CharacterDao>();
-    public async Task<Character> CreateCharacterAsync(string name, Classes characterClass)
+    private readonly IRepository<Character> _characterRepository = unitOfWork.GetRepository<Character>();
+    public async Task<Character> CreateCharacterAsync(string name, Classes characterClass, string userId)
     {
-        var character = new CharacterDao()
+        var character = new Character()
         {
             Name = name,
-            Class = characterClass
+            Class = characterClass,
+            UserId = userId
         };
         
         await _characterRepository.AddAsync(character);
         
         
-        // A remplacer par un truc propre
-        return new Character()
-        {
-            Id = character.Id,
-            Name = character.Name,
-            Class = character.Class
-        };
+        return character;
     }
-    
-    
+
+
 }
