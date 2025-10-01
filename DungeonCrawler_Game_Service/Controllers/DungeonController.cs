@@ -19,32 +19,54 @@ public class DungeonController : ControllerBase
     }
 
     [HttpPost("generate")]
+    [ProducesResponseType(typeof(DungeonResponse), 200)]
+    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public async Task<ActionResult<DungeonResponse>> GenerateDungeon()
     {
-        Dungeon dungeon = await _dungeonService.GenerateDungeonAsync();
-
-        var response = new DungeonResponse
+        try
         {
-            Id = dungeon.Id,
-            Levels = dungeon.Levels.Select(level => new LevelResponse
+            var dungeon = await _dungeonService.GenerateDungeonAsync();
+            var response = new DungeonResponse
             {
-                Number = level.Number,
-                Rooms = level.Rooms.Select(room => new RoomResponse
+                Id = dungeon.Id,
+                Levels = dungeon.Levels.Select(level => new LevelResponse
                 {
-                    Id = room.Id,
-                    NextRoomId = room.NextRoomId,
-                    Type = room.Type.ToString()
+                    Number = level.Number,
+                    Rooms = level.Rooms.Select(room => new RoomResponse
+                    {
+                        Id = room.Id,
+                        NextRoomId = room.NextRoomId,
+                        Type = room.Type.ToString()
+                    }).ToList()
                 }).ToList()
-            }).ToList()
-        };
-
-        return Ok(response);
+            };
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ErrorResponse
+            {
+                Code = "DUNGEON_GENERATION_FAILED",
+                Message = ex.Message
+            });
+        }
     }
-    
+
     [HttpGet("{dungeonId}/room/{roomId}/next")]
+    [ProducesResponseType(typeof(NextRoomsResponse), 200)]
+    [ProducesResponseType(typeof(ErrorResponse), 404)]
+    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public ActionResult<NextRoomsResponse> GetNextRooms(string dungeonId, string roomId)
     {
         var nextRooms = _dungeonService.GetNextRooms(dungeonId, roomId);
+        if (nextRooms == null || !nextRooms.Any())
+        {
+            return NotFound(new ErrorResponse
+            {
+                Code = "ROOM_NOT_FOUND",
+                Message = $"No next rooms found for room {roomId}."
+            });
+        }
 
         return Ok(new NextRoomsResponse
         {
@@ -59,9 +81,42 @@ public class DungeonController : ControllerBase
     }
 
     [HttpPost("{dungeonId}/enter")]
+    [ProducesResponseType(typeof(EnterRoomResponse), 200)]
+    [ProducesResponseType(typeof(ErrorResponse), 400)]
+    [ProducesResponseType(typeof(ErrorResponse), 404)]
+    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public ActionResult<EnterRoomResponse> EnterRoom(string dungeonId, [FromBody] EnterRoomRequest request)
     {
-        var response = _dungeonService.EnterRoom(dungeonId, request.CurrentRoomId, request.NextRoomId);
-        return Ok(response);
+        try
+        {
+            var response = _dungeonService.EnterRoom(dungeonId, request.CurrentRoomId, request.NextRoomId);
+
+            if (response == null)
+            {
+                return NotFound(new ErrorResponse
+                {
+                    Code = "ROOM_NOT_FOUND",
+                    Message = "The specified room does not exist."
+                });
+            }
+
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Code = "INVALID_REQUEST",
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ErrorResponse
+            {
+                Code = "ENTER_ROOM_FAILED",
+                Message = ex.Message
+            });
+        }
     }
 }

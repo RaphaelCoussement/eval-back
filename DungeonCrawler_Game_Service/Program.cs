@@ -3,7 +3,9 @@ using DungeonCrawler_Game_Service.Application.Services;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +37,56 @@ builder.Services.AddScoped<ICharacterService, CharacterService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Swagger configuration enrichie
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "DungeonCrawler Game Service API",
+        Version = "v1",
+        Description = "API for managing dungeons, characters, and game logic",
+        Contact = new OpenApiContact
+        {
+            Name = "DungeonCrawler Team",
+            Email = "support@dungeoncrawler.com"
+        }
+    });
+
+    // Inclure les commentaires XML si tu veux des descriptions plus précises
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+
+    // Définition des schémas globaux
+    options.MapType<ErrorResponse>(() => new OpenApiSchema
+    {
+        Type = "object",
+        Properties =
+        {
+            ["code"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("ROOM_NOT_FOUND") },
+            ["message"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("The specified room does not exist") }
+        },
+        Required = new HashSet<string> { "code", "message" }
+    });
+
+    options.MapType<EventSchema>(() => new OpenApiSchema
+    {
+        Type = "object",
+        Properties =
+        {
+            ["eventId"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("uuid-12345") },
+            ["eventVersion"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("v1") },
+            ["eventType"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("DungeonGenerated") },
+            ["timestamp"] = new OpenApiSchema { Type = "string", Format = "date-time", Example = new Microsoft.OpenApi.Any.OpenApiString("2025-10-01T10:00:00Z") },
+            ["data"] = new OpenApiSchema { Type = "object" }
+        },
+        Required = new HashSet<string> { "eventId", "eventVersion", "eventType", "timestamp" }
+    });
+});
 
 builder.Services.AddCors(options =>
 {
@@ -53,7 +104,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DungeonCrawler Game Service v1");
+    });
 }
 
 app.UseCors("AllowAll");
@@ -62,8 +116,24 @@ app.UseAuthorization();
 app.MapControllers();
 app.Run();
 
+// Classes pour documenter Swagger
 public class MongoDbSettings
 {
     public string ConnectionString { get; set; } = null!;
     public string DatabaseName { get; set; } = null!;
+}
+
+public class ErrorResponse
+{
+    public string Code { get; set; } = null!;
+    public string Message { get; set; } = null!;
+}
+
+public class EventSchema
+{
+    public string EventId { get; set; } = null!;
+    public string EventVersion { get; set; } = null!;
+    public string EventType { get; set; } = null!;
+    public DateTime Timestamp { get; set; }
+    public object Data { get; set; } = null!;
 }

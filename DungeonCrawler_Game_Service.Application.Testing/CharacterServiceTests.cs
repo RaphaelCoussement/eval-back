@@ -1,10 +1,7 @@
-using System.Threading.Tasks;
 using DefaultNamespace;
-using DungeonCrawler_Game_Service.Application.Contracts;
 using DungeonCrawler_Game_Service.Application.Services;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using Moq;
-using NUnit.Framework;
 
 namespace DungeonCrawler_Game_Service.Application.Testing;
 
