@@ -14,40 +14,46 @@ public class DungeonService : IDungeonService
         _dungeonRepository = unitOfWork.GetRepository<Dungeon>();
     }
 
-    public Dungeon GenerateDungeon(int minRooms, int maxRooms)
+    public async Task<Dungeon> GenerateDungeonAsync()
     {
         var dungeon = new Dungeon();
 
-        // Nombre total de salles à générer
-        int totalRooms = _random.Next(minRooms, maxRooms + 1);
-
-        // Minimum 15 étages
-        int levelsCount = Math.Max(15, totalRooms / 3); // Chaque étage peut avoir max 3 salles
-
-        int roomsCreated = 0;
+        int levelsCount = _random.Next(15, 21);
 
         for (int levelIndex = 1; levelIndex <= levelsCount; levelIndex++)
         {
             var level = new Level { Number = levelIndex };
 
-            // Dernier étage = boss (1 salle)
             int roomsInLevel;
+
             if (levelIndex == levelsCount)
             {
+                // Dernier étage = boss (1 salle obligatoire)
                 roomsInLevel = 1;
             }
             else
             {
-                // On prend 1 à 3 salles par étage, mais sans dépasser le total de salles
-                roomsInLevel = Math.Min(_random.Next(1, 4), totalRooms - roomsCreated - (levelsCount - levelIndex));
+                // Tirage pondéré : favorise 3 salle (50% chance 3, 30% 2, 10% 3)
+                int roll = _random.Next(100);
+                if (roll < 50)
+                    roomsInLevel = 3;
+                else if (roll < 80)
+                    roomsInLevel = 2;
+                else
+                    roomsInLevel = 1;
             }
 
+            // Création des salles pour cet étage
             for (int i = 0; i < roomsInLevel; i++)
             {
                 var room = new Room
                 {
-                    Id = $"{levelIndex}{(char)('a' + i)}"
+                    Id = $"{levelIndex}{(char)('a' + i)}",
+                    Type = levelIndex == levelsCount
+                        ? RoomType.Boss
+                        : GetRandomRoomType() // fonction pour tirer Monster, Treasure, Trap
                 };
+
                 level.Rooms.Add(room);
             }
 
@@ -62,7 +68,6 @@ public class DungeonService : IDungeonService
             }
             else
             {
-                // Dernière salle = boss
                 foreach (var room in level.Rooms)
                 {
                     room.NextRoomId = null;
@@ -70,13 +75,19 @@ public class DungeonService : IDungeonService
             }
 
             dungeon.Levels.Add(level);
-            roomsCreated += roomsInLevel;
         }
 
         // Sauvegarde en base
-        _dungeonRepository.AddAsync(dungeon).Wait();
+        await _dungeonRepository.AddAsync(dungeon);
 
         return dungeon;
+    }
+
+    // Tirage aléatoire entre Monster, Treasure et Trap
+    private RoomType GetRandomRoomType()
+    {
+        var types = new[] { RoomType.Monster, RoomType.Treasure, RoomType.Trap };
+        return types[_random.Next(types.Length)];
     }
 
     

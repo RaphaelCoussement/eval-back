@@ -5,7 +5,7 @@ namespace DungeonCrawler_Game_Service.Application.Contracts;
 
 public interface IDungeonService
 {
-    Dungeon GenerateDungeon(int minRooms, int maxRooms);
+    Task<Dungeon> GenerateDungeonAsync();
     List<Room> GetNextRooms(string dungeonId, string roomId);
 
     RoomProgress EnterRoom(string dungeonId, string currentRoomId, string nextRoomId);

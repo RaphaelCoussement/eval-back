@@ -19,9 +19,9 @@ public class DungeonController : ControllerBase
     }
 
     [HttpPost("generate")]
-    public ActionResult<DungeonResponse> GenerateDungeon([FromBody] GenerateDungeonRequest request)
+    public async Task<ActionResult<DungeonResponse>> GenerateDungeon()
     {
-        Dungeon dungeon = _dungeonService.GenerateDungeon(request.MinRooms, request.MaxRooms);
+        Dungeon dungeon = await _dungeonService.GenerateDungeonAsync();
 
         var response = new DungeonResponse
         {
@@ -32,7 +32,8 @@ public class DungeonController : ControllerBase
                 Rooms = level.Rooms.Select(room => new RoomResponse
                 {
                     Id = room.Id,
-                    NextRoomId = room.NextRoomId
+                    NextRoomId = room.NextRoomId,
+                    Type = room.Type.ToString()
                 }).ToList()
             }).ToList()
         };
@@ -51,7 +52,8 @@ public class DungeonController : ControllerBase
             NextRooms = nextRooms.Select(r => new RoomResponse
             {
                 Id = r.Id,
-                NextRoomId = r.NextRoomId
+                NextRoomId = r.NextRoomId,
+                Type = r.Type.ToString()
             }).ToList()
         });
     }

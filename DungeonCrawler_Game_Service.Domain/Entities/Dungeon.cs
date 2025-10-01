@@ -3,9 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace DungeonCrawler_Game_Service.Domain.Entities;
 
-/// <summary>
-/// 
-/// </summary>
+
 public class Dungeon
 {
     [BsonId] // MongoDB Id
