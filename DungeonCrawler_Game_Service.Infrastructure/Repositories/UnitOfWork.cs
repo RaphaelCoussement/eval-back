@@ -3,12 +3,12 @@ using MongoDB.Driver;
 
 namespace DungeonCrawler_Game_Service.Infrastructure.Repositories;
 
-public class MongoUnitOfWork : IUnitOfWork
+public class UnitOfWork : IUnitOfWork
 {
     private readonly IMongoDatabase _database;
     private readonly Dictionary<Type, object> _repositories = new();
 
-    public MongoUnitOfWork(IMongoDatabase database)
+    public UnitOfWork(IMongoDatabase database)
     {
         _database = database;
     }
@@ -20,7 +20,7 @@ public class MongoUnitOfWork : IUnitOfWork
             return (IRepository<TEntity>)_repositories[type];
 
         var collectionName = typeof(TEntity).Name + "s";
-        var repo = new MongoRepository<TEntity>(_database, collectionName);
+        var repo = new GenericRepository<TEntity>(_database, collectionName);
         _repositories[type] = repo;
         return repo;
     }

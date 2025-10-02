@@ -3,11 +3,13 @@ using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Models.Requests;
 using DungeonCrawler_Game_Service.Models.Responses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class DungeonController : ControllerBase
 {
@@ -18,7 +20,11 @@ public class DungeonController : ControllerBase
         _dungeonService = dungeonService;
     }
 
-    [HttpPost("generate")]
+    /// <summary>
+    ///  Génération d'un donjon
+    /// </summary>
+    /// <returns>L'état de la requête avec le donjon sous forme de DungeonResponse</returns>
+    [HttpPost]
     [ProducesResponseType(typeof(DungeonResponse), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 500)]
     public async Task<ActionResult<DungeonResponse>> GenerateDungeon()
@@ -52,6 +58,12 @@ public class DungeonController : ControllerBase
         }
     }
 
+    /// <summary>
+    ///  Récupère les salles suivantes possibles depuis une salle donnée dans un donjon.
+    /// </summary>
+    /// <param name="dungeonId">L'id du donjon de la salle</param>
+    /// <param name="roomId">Id de la room actuelle</param>
+    /// <returns>La liste des rooms suivante sous form d'une RoomResponse</returns>
     [HttpGet("{dungeonId}/room/{roomId}/next")]
     [ProducesResponseType(typeof(NextRoomsResponse), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 404)]
@@ -80,6 +92,11 @@ public class DungeonController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Permet d'entrer dans une salle spécifique d'un donjon.
+    /// </summary>
+    /// <param name="dungeonId">Id du donjon concerné</param>
+    /// <returns>Létat de la requete</returns>
     [HttpPost("{dungeonId}/enter")]
     [ProducesResponseType(typeof(EnterRoomResponse), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -89,7 +106,7 @@ public class DungeonController : ControllerBase
     {
         try
         {
-            var response = _dungeonService.EnterRoom(dungeonId, request.CurrentRoomId, request.NextRoomId);
+            var response = _dungeonService.EnterRoom(dungeonId, request.NextRoomId);
 
             if (response == null)
             {

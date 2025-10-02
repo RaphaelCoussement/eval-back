@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +29,7 @@ builder.Services.AddScoped(sp =>
 });
 
 // UnitOfWork scoped
-builder.Services.AddScoped<IUnitOfWork, MongoUnitOfWork>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // DungeonService scoped
 builder.Services.AddScoped<IDungeonService, DungeonService>();
@@ -99,6 +100,24 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Configuration de l'authentification JWT avec Keycloak
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.Authority = "http://localhost:8080/realms/katakombs";
+        options.RequireHttpsMetadata = false; // à true en production
+        options.Audience = "katakombsId"; // audiance configurée dans Keycloak
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ApiUser", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("preferred_username");
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -112,8 +131,15 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+app.MapGet("/secure", [Authorize(Policy = "ApiUser")] () =>
+{
+    return Results.Ok("Accès autorisé !");
+});
+
 app.Run();
 
 // Classes pour documenter Swagger

@@ -4,11 +4,11 @@ using MongoDB.Driver;
 
 namespace DungeonCrawler_Game_Service.Infrastructure.Repositories;
 
-public class MongoRepository<T> : IRepository<T> where T : class
+public class GenericRepository<T> : IRepository<T> where T : class
 {
     private readonly IMongoCollection<T> _collection;
 
-    public MongoRepository(IMongoDatabase database, string collectionName)
+    public GenericRepository(IMongoDatabase database, string collectionName)
     {
         _collection = database.GetCollection<T>(collectionName);
     }

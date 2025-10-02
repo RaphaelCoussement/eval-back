@@ -4,15 +4,12 @@ using DungeonCrawler_Game_Service.Domain.Models;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 
 namespace DungeonCrawler_Game_Service.Application.Services;
-public class DungeonService : IDungeonService
+public class DungeonService(
+    IUnitOfWork unitOfWork
+) : IDungeonService
 {
     private readonly Random _random = new Random();
-    private readonly IRepository<Dungeon> _dungeonRepository;
-
-    public DungeonService(IUnitOfWork unitOfWork)
-    {
-        _dungeonRepository = unitOfWork.GetRepository<Dungeon>();
-    }
+    private readonly IRepository<Dungeon> _dungeonRepository = unitOfWork.GetRepository<Dungeon>();
 
     public async Task<Dungeon> GenerateDungeonAsync()
     {
@@ -83,7 +80,7 @@ public class DungeonService : IDungeonService
         return dungeon;
     }
 
-    // Tirage aléatoire entre Monster, Treasure et Trap
+    // Tirage aléatoire entre Monster, Treasure
     private RoomType GetRandomRoomType()
     {
         var types = new[] { RoomType.Monster, RoomType.Treasure, RoomType.Trap };
@@ -111,7 +108,7 @@ public class DungeonService : IDungeonService
         return nextRooms;
     }
 
-    public RoomProgress EnterRoom(string dungeonId, string currentRoomId, string nextRoomId)
+    public RoomProgress EnterRoom(string dungeonId, string nextRoomId)
     {
         var dungeon = _dungeonRepository.GetByIdAsync(dungeonId).Result;
         if (dungeon == null)
@@ -122,7 +119,7 @@ public class DungeonService : IDungeonService
 
         var level = dungeon.Levels.FirstOrDefault(l => l.Rooms.Any(r => r.Id == nextRoomId));
 
-        // 👉 Ici, tu pourrais aussi sauvegarder une "progression du joueur" dans une autre collection Mongo
+        
         return new RoomProgress
         {
             RoomId = room.Id,

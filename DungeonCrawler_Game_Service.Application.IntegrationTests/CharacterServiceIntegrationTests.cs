@@ -29,7 +29,7 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
             _database = client.GetDatabase("TestCharatcerDb");
 
             // Création d'un repository concret
-            _characterRepository = new MongoRepository<Character>(_database, "Characters");
+            _characterRepository = new GenericRepository<Character>(_database, "Characters");
 
             // UnitOfWork factice qui injecte le repository
             var unitOfWorkMock = new Mock<IUnitOfWork>();

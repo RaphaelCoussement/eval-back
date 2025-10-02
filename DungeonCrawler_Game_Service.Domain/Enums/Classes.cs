@@ -18,6 +18,6 @@ public enum Classes
     /// <summary>
     /// Classe Mage code 3
     /// </summary>
-    Mage = 3
+    Wizard = 3
     
 }
