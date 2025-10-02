@@ -1,12 +1,14 @@
 ﻿using DefaultNamespace;
 using DungeonCrawler_Game_Service.Application.Contracts;
 using DungeonCrawler_Game_Service.Models.Requests;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class CharacterController : ControllerBase
 {
@@ -20,6 +22,7 @@ public class CharacterController : ControllerBase
     /// <summary>
     /// Création d'un personnage
     /// </summary>
+
     [HttpPost]
     [ProducesResponseType(typeof(Ok), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 400)]

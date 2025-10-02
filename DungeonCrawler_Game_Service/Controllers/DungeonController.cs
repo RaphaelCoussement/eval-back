@@ -3,11 +3,13 @@ using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Models.Requests;
 using DungeonCrawler_Game_Service.Models.Responses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class DungeonController : ControllerBase
 {
