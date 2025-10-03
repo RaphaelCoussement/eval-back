@@ -12,5 +12,6 @@ public enum RoomType
     Monster,
     Treasure,
     Trap,
-    Boss
+    Boss,
+    Entrance,
 }

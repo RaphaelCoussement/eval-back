@@ -54,4 +54,17 @@ public class DungeonController(
         var response = await _mediator.Send(query);
         return Ok(response);
     }
+    
+    /// <summary>
+    /// Permet de lier des salles entre elles dans un donjon.
+    /// </summary>
+    /// <returns>Le donjon</returns>
+    [HttpPost("link")]
+    public async Task<IActionResult> LinkRooms([FromBody] LinkRoomsCommand command)
+    {
+        var response = await _mediator.Send(command);
+        return Ok(response);
+    }
+    
+    
 }
