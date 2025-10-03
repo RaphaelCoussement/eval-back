@@ -14,7 +14,7 @@ public class EnterRoomQueryValidator : AbstractValidator<EnterRoomQuery>
         // Validation de NextRoomId (champ obligatoire et id MongoDB valide)
         RuleFor(x => x.NextRoomId)
             .NotEmpty().WithMessage("NextRoomId is required.")
-            .Must(BeValidObjectId).WithMessage("NextRoomId must be a valid MongoDB ObjectId.");
+            .Matches(@"^\d+[a-zA-Z]$").WithMessage("NextRoomId must be in the format of a number followed by a letter (e.g., '1a', '2b').");
 
         // Validation de DungeonId (champ obligatoire et id MongoDB valide)
         RuleFor(x => x.DungeonId)

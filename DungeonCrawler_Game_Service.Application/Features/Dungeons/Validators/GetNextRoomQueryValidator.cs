@@ -13,8 +13,8 @@ public class GetNextRoomQueryValidator : AbstractValidator<GetNextRoomsQuery>
     {
         // Validation pour CurrentRoomId (champ obligatoire et doit être un id MongoDB valide)
         RuleFor(x => x.CurrentRoomId)
-            .NotEmpty().WithMessage("RoomId is required.")
-            .Must(BeValidObjectId).WithMessage("RoomId must be a valid MongoDB ObjectId.");
+            .NotEmpty().WithMessage("CurrentRoomId is required.")
+            .Matches(@"^\d+[a-zA-Z]$").WithMessage("CurrentRoomId must be in the format of a number followed by a letter (e.g., '1a', '2b').");
 
         // Validation pour DungeonId (champ obligatoire et doit être un id MongoDB valide)
         RuleFor(x => x.DungeonId)
