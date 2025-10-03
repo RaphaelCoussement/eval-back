@@ -23,9 +23,6 @@ public class CharacterController(
     /// <returns>L'état de la requête avec le character</returns>
 
     [HttpPost]
-    [ProducesResponseType(typeof(Ok), 200)]
-    [ProducesResponseType(typeof(ErrorResponse), 400)]
-    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public async Task<IActionResult> CreateCharacter([FromBody] CreateCharacterCommand command)
     {
         var response = await _mediator.Send(command);

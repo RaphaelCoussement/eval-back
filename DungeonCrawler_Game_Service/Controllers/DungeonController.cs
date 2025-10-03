@@ -24,8 +24,6 @@ public class DungeonController(
     /// </summary>
     /// <returns>L'état de la requête</returns>
     [HttpPost]
-    [ProducesResponseType(typeof(DungeonResponse), 200)]
-    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public async Task<IActionResult> GenerateDungeon(GenerateDungeonCommand command)
     {
         var response = await _mediator.Send(command);
@@ -37,9 +35,6 @@ public class DungeonController(
     /// </summary>
     /// <returns>La liste des rooms suivante</returns>
     [HttpGet("{dungeonId}/room/{roomId}/next")]
-    [ProducesResponseType(typeof(NextRoomsResponse), 200)]
-    [ProducesResponseType(typeof(ErrorResponse), 404)]
-    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public async Task<IActionResult> GetNextRooms(string dungeonId, string roomId)
     {
         var response = await _mediator.Send(new GetNextRoomsQuery(dungeonId, roomId));
@@ -52,10 +47,6 @@ public class DungeonController(
     /// <param name="dungeonId">Id du donjon concerné</param>
     /// <returns>Létat de la requete</returns>
     [HttpPost("{dungeonId}/enter")]
-    [ProducesResponseType(typeof(EnterRoomResponse), 200)]
-    [ProducesResponseType(typeof(ErrorResponse), 400)]
-    [ProducesResponseType(typeof(ErrorResponse), 404)]
-    [ProducesResponseType(typeof(ErrorResponse), 500)]
     public async Task<IActionResult> EnterRoom(string dungeonId, [FromBody] EnterRoomQuery query)
     {
         // Assigne le dungeonId de la route au query
