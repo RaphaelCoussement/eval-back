@@ -1,12 +1,12 @@
 using DefaultNamespace;
-using DungeonCrawler_Game_Service.Application.Services;
+using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using Moq;
 
 namespace DungeonCrawler_Game_Service.Application.Testing;
 
 [TestFixture]
-public class CharacterServiceTests
+public class CharacterUnitTests
 {
     /// <summary>
     /// Ce test vérifie que la méthode CreateCharacterAsync du CharacterService crée un personnage avec les propriétés correctes
@@ -20,14 +20,16 @@ public class CharacterServiceTests
 
         var mockUnitOfWork = new Mock<IUnitOfWork>();
         mockUnitOfWork.Setup(u => u.GetRepository<Character>()).Returns(mockRepo.Object);
-
-        var service = new CharacterService(mockUnitOfWork.Object);
+        
+        var handler = new CreateCharacterCommandHandler(mockUnitOfWork.Object);
         var name = "TestHero";
         var characterClass = Classes.Warrior;
         var userId = "user-123";
 
+        var command = new CreateCharacterCommand{ Name = name, ClassCode = (int)characterClass, UserId = userId };
+        
         // Action testée
-        var result = await service.CreateCharacterAsync(name, characterClass, userId);
+        var result = await handler.Handle(command, CancellationToken.None);
 
         // Assertions
         Assert.That(result, Is.Not.Null);

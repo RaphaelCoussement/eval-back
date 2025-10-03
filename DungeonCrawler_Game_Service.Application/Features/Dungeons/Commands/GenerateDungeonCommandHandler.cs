@@ -1,17 +1,24 @@
-using DungeonCrawler_Game_Service.Application.Contracts;
-using DungeonCrawler_Game_Service.Domain.Entities;
-using DungeonCrawler_Game_Service.Domain.Models;
+﻿using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
+using MediatR;
 
-namespace DungeonCrawler_Game_Service.Application.Services;
-public class DungeonService(
+namespace DungeonCrawler_Game_Service.Application.Features.Dungeons.Commands;
+
+/// <summary>
+/// Command Handler pour générer un nouveau donjon.
+/// </summary>
+public class GenerateDungeonCommandHandler(
     IUnitOfWork unitOfWork
-) : IDungeonService
+) : IRequestHandler<GenerateDungeonCommand, Dungeon>
 {
-    private readonly Random _random = new Random();
     private readonly IRepository<Dungeon> _dungeonRepository = unitOfWork.GetRepository<Dungeon>();
-
-    public async Task<Dungeon> GenerateDungeonAsync()
+    private readonly Random _random = new();
+    
+    /// <summary>
+    /// Handle génère un donjon avec un nombre aléatoire d'étages (15-20).
+    /// </summary>
+    /// <returns>Le nouveau donjon</returns>
+    public async Task<Dungeon> Handle(GenerateDungeonCommand request, CancellationToken cancellationToken)
     {
         var dungeon = new Dungeon();
 
@@ -79,52 +86,11 @@ public class DungeonService(
 
         return dungeon;
     }
-
+    
     // Tirage aléatoire entre Monster, Treasure
     private RoomType GetRandomRoomType()
     {
         var types = new[] { RoomType.Monster, RoomType.Treasure, RoomType.Trap };
         return types[_random.Next(types.Length)];
-    }
-
-    
-    public List<Room> GetNextRooms(string dungeonId, string roomId)
-    {
-        var dungeon = _dungeonRepository.GetByIdAsync(dungeonId).Result;
-        if (dungeon == null)
-            throw new KeyNotFoundException("Dungeon not found");
-
-        // Trouve la salle cliquée
-        var currentRoom = dungeon.Levels.SelectMany(l => l.Rooms).FirstOrDefault(r => r.Id == roomId);
-        if (currentRoom == null)
-            throw new KeyNotFoundException("Room not found");
-
-        // Retourne **toutes les salles dont le NextRoomId correspond à currentRoom.NextRoomId**
-        var nextRooms = dungeon.Levels
-            .SelectMany(l => l.Rooms)
-            .Where(r => r.Id == currentRoom.NextRoomId || r.Id.StartsWith(currentRoom.NextRoomId?.Substring(0, 1) ?? ""))
-            .ToList();
-
-        return nextRooms;
-    }
-
-    public RoomProgress EnterRoom(string dungeonId, string nextRoomId)
-    {
-        var dungeon = _dungeonRepository.GetByIdAsync(dungeonId).Result;
-        if (dungeon == null)
-            throw new KeyNotFoundException("Dungeon not found");
-
-        var room = dungeon.Levels.SelectMany(l => l.Rooms).FirstOrDefault(r => r.Id == nextRoomId);
-        if (room == null) throw new KeyNotFoundException("Next room not found");
-
-        var level = dungeon.Levels.FirstOrDefault(l => l.Rooms.Any(r => r.Id == nextRoomId));
-
-        
-        return new RoomProgress
-        {
-            RoomId = room.Id,
-            Level = level?.Number ?? 0,
-            Events = new List<string> { "monster", "loot" } // Placeholder pour test
-        };
     }
 }

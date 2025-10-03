@@ -1,8 +1,11 @@
 using DungeonCrawler_Game_Service.Application.Contracts;
+using DungeonCrawler_Game_Service.Application.Features.Dungeons.Commands;
+using DungeonCrawler_Game_Service.Application.Features.Dungeons.Queries;
 using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Models.Requests;
 using DungeonCrawler_Game_Service.Models.Responses;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,85 +14,37 @@ namespace DungeonCrawler_Game_Service.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class DungeonController : ControllerBase
+public class DungeonController(
+    IMediator mediator
+    ) : ControllerBase
 {
-    private readonly IDungeonService _dungeonService;
-
-    public DungeonController(IDungeonService dungeonService)
-    {
-        _dungeonService = dungeonService;
-    }
+    private readonly IMediator _mediator = mediator;
 
     /// <summary>
     ///  Génération d'un donjon
     /// </summary>
-    /// <returns>L'état de la requête avec le donjon sous forme de DungeonResponse</returns>
+    /// <returns>L'état de la requête</returns>
     [HttpPost]
     [ProducesResponseType(typeof(DungeonResponse), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 500)]
-    public async Task<ActionResult<DungeonResponse>> GenerateDungeon()
+    public async Task<IActionResult> GenerateDungeon(GenerateDungeonCommand command)
     {
-        try
-        {
-            var dungeon = await _dungeonService.GenerateDungeonAsync();
-            var response = new DungeonResponse
-            {
-                Id = dungeon.Id,
-                Levels = dungeon.Levels.Select(level => new LevelResponse
-                {
-                    Number = level.Number,
-                    Rooms = level.Rooms.Select(room => new RoomResponse
-                    {
-                        Id = room.Id,
-                        NextRoomId = room.NextRoomId,
-                        Type = room.Type.ToString()
-                    }).ToList()
-                }).ToList()
-            };
-            return Ok(response);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ErrorResponse
-            {
-                Code = "DUNGEON_GENERATION_FAILED",
-                Message = ex.Message
-            });
-        }
+        var response = await _mediator.Send(command);
+        return Ok(response);
     }
 
     /// <summary>
     ///  Récupère les salles suivantes possibles depuis une salle donnée dans un donjon.
     /// </summary>
-    /// <param name="dungeonId">L'id du donjon de la salle</param>
-    /// <param name="roomId">Id de la room actuelle</param>
-    /// <returns>La liste des rooms suivante sous form d'une RoomResponse</returns>
+    /// <returns>La liste des rooms suivante</returns>
     [HttpGet("{dungeonId}/room/{roomId}/next")]
     [ProducesResponseType(typeof(NextRoomsResponse), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 404)]
     [ProducesResponseType(typeof(ErrorResponse), 500)]
-    public ActionResult<NextRoomsResponse> GetNextRooms(string dungeonId, string roomId)
+    public async Task<IActionResult> GetNextRooms(string dungeonId, string roomId)
     {
-        var nextRooms = _dungeonService.GetNextRooms(dungeonId, roomId);
-        if (nextRooms == null || !nextRooms.Any())
-        {
-            return NotFound(new ErrorResponse
-            {
-                Code = "ROOM_NOT_FOUND",
-                Message = $"No next rooms found for room {roomId}."
-            });
-        }
-
-        return Ok(new NextRoomsResponse
-        {
-            CurrentRoomId = roomId,
-            NextRooms = nextRooms.Select(r => new RoomResponse
-            {
-                Id = r.Id,
-                NextRoomId = r.NextRoomId,
-                Type = r.Type.ToString()
-            }).ToList()
-        });
+        var response = await _mediator.Send(new GetNextRoomsQuery(dungeonId, roomId));
+        return Ok(response);
     }
 
     /// <summary>
@@ -102,38 +57,11 @@ public class DungeonController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), 400)]
     [ProducesResponseType(typeof(ErrorResponse), 404)]
     [ProducesResponseType(typeof(ErrorResponse), 500)]
-    public ActionResult<EnterRoomResponse> EnterRoom(string dungeonId, [FromBody] EnterRoomRequest request)
+    public async Task<IActionResult> EnterRoom(string dungeonId, [FromBody] EnterRoomQuery query)
     {
-        try
-        {
-            var response = _dungeonService.EnterRoom(dungeonId, request.NextRoomId);
-
-            if (response == null)
-            {
-                return NotFound(new ErrorResponse
-                {
-                    Code = "ROOM_NOT_FOUND",
-                    Message = "The specified room does not exist."
-                });
-            }
-
-            return Ok(response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Code = "INVALID_REQUEST",
-                Message = ex.Message
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new ErrorResponse
-            {
-                Code = "ENTER_ROOM_FAILED",
-                Message = ex.Message
-            });
-        }
+        // Assigne le dungeonId de la route au query
+        query.DungeonId = dungeonId;
+        var response = await _mediator.Send(query);
+        return Ok(response);
     }
 }
