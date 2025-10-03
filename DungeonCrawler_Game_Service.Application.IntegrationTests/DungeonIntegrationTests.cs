@@ -1,4 +1,4 @@
-using DungeonCrawler_Game_Service.Application.Services;
+using DungeonCrawler_Game_Service.Application.Features.Dungeons.Commands;
 using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace DungeonCrawler_Game_Service.Application.IntegrationTests
 {
     [TestFixture]
-    public class DungeonServiceIntegrationTests
+    public class DungeonIntegrationTests
     {
         private MongoDbRunner _mongoRunner;
         private IMongoDatabase _database;
@@ -18,27 +18,24 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
         // Dépendances injectées
         private IRepository<Dungeon> _dungeonRepository;
         private IUnitOfWork _unitOfWork;
-        private DungeonService _dungeonService;
 
+        /// <summary>
+        /// Setup avant chaque test pour initialiser une base de données MongoDB en mémoire.
+        /// </summary>
         [SetUp]
         public void Setup()
         {
-            // Lance un MongoDB in-memory
+            // Démarre une instance MongoDB en mémoire
             _mongoRunner = MongoDbRunner.Start();
             var client = new MongoClient(_mongoRunner.ConnectionString);
             _database = client.GetDatabase("TestDungeonDb");
 
-            // Création d'un repository concret
+            // Initialise les dépôts et le unit of work
             _dungeonRepository = new GenericRepository<Dungeon>(_database, "Dungeons");
-
-            // UnitOfWork factice qui injecte le repository
             var unitOfWorkMock = new Mock<IUnitOfWork>();
             unitOfWorkMock.Setup(uow => uow.GetRepository<Dungeon>())
-                          .Returns(_dungeonRepository);
+                .Returns(_dungeonRepository);
             _unitOfWork = unitOfWorkMock.Object;
-
-            // DungeonService reçoit l'instance injectée
-            _dungeonService = new DungeonService(_unitOfWork);
         }
 
         [TearDown]
@@ -47,11 +44,19 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
             _mongoRunner.Dispose();
         }
 
+        /// <summary>
+        /// Teste la génération d'un donjon et sa persistance dans la base de données.
+        /// </summary>
         [Test]
         public async Task GenerateDungeonAsync_ShouldPersistDungeonInDatabase()
         {
-            var dungeon = await _dungeonService.GenerateDungeonAsync();
-
+            //Arrange
+            var handler = new GenerateDungeonCommandHandler(_unitOfWork);
+            
+            //Act
+            var dungeon = await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
+            
+            //Assert
             Assert.That(dungeon, Is.Not.Null);
             Assert.That(dungeon.Levels.Count, Is.InRange(15, 20));
 
@@ -61,22 +66,39 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
             Assert.That(storedDungeon.Levels.Count, Is.EqualTo(dungeon.Levels.Count));
         }
 
+        /// <summary>
+        /// Teste que le dernier niveau du donjon contient une salle de boss.
+        /// </summary>
         [Test]
         public async Task GenerateDungeonAsync_ShouldHaveBossRoomAtLastLevel_InDatabase()
         {
-            var dungeon = await _dungeonService.GenerateDungeonAsync();
+            //Arrange
+            var handler = new GenerateDungeonCommandHandler(_unitOfWork);
+            
+            //Act
+            var dungeon = await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
+            
+            //Assert
             var storedDungeon = await _dungeonRepository.GetByIdAsync(dungeon.Id);
 
             Assert.That(storedDungeon.Levels.Last().Rooms.Count, Is.EqualTo(1));
             Assert.That(storedDungeon.Levels.Last().Rooms.First().Type, Is.EqualTo(RoomType.Boss));
         }
 
+        /// <summary>
+        /// Teste que chaque salle d'un niveau est correctement liée à une salle du niveau suivant.
+        /// </summary>
         [Test]
         public async Task GenerateDungeonAsync_ShouldLinkRoomsToNextLevel()
         {
-            var dungeon = await _dungeonService.GenerateDungeonAsync();
+            //Arrange
+            var handler = new GenerateDungeonCommandHandler(_unitOfWork);
+            
+            //Act
+            var dungeon = await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
+            
+            //Assert
             var storedDungeon = await _dungeonRepository.GetByIdAsync(dungeon.Id);
-
             for (int i = 0; i < storedDungeon.Levels.Count - 1; i++)
             {
                 var currentLevel = storedDungeon.Levels[i];
@@ -90,21 +112,38 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
             }
         }
 
+        /// <summary>
+        /// Teste la récupération de tous les donjons stockés dans la base de données.
+        /// </summary>
         [Test]
         public async Task GetAllAsync_ShouldReturnStoredDungeons()
         {
-            await _dungeonService.GenerateDungeonAsync();
-            await _dungeonService.GenerateDungeonAsync();
+            //Arrange
+            var handler = new GenerateDungeonCommandHandler(_unitOfWork);
+            
+            //Act
+            await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
+            await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
+            
+            //Assert
 
             var allDungeons = await _dungeonRepository.GetAllAsync();
             Assert.That(allDungeons.Count(), Is.GreaterThanOrEqualTo(2));
         }
 
+        /// <summary>
+        /// Teste la recherche d'un donjon par son ID.
+        /// </summary>
         [Test]
         public async Task FindAsync_ShouldReturnDungeonById()
         {
-            var dungeon = await _dungeonService.GenerateDungeonAsync();
-
+            //Arrange
+            var handler = new GenerateDungeonCommandHandler(_unitOfWork);
+            
+            //Act
+            var dungeon = await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
+            
+            //Assert
             var found = await _dungeonRepository.FindAsync(d => d.Id == dungeon.Id);
 
             Assert.That(found.FirstOrDefault(), Is.Not.Null);

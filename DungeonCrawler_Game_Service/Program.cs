@@ -1,11 +1,15 @@
 using DungeonCrawler_Game_Service.Application.Contracts;
-using DungeonCrawler_Game_Service.Application.Services;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using System.Reflection;
+using DungeonCrawler_Game_Service.Application.Behavior;
+using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
+using DungeonCrawler_Game_Service.Application.Features.Characters.Validators;
+using FluentValidation;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,10 +35,15 @@ builder.Services.AddScoped(sp =>
 // UnitOfWork scoped
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-// DungeonService scoped
-builder.Services.AddScoped<IDungeonService, DungeonService>();
-// CharacterService scoped
-builder.Services.AddScoped<ICharacterService, CharacterService>();
+
+
+// Ajout de MediatR
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssemblyContaining<CreateCharacterCommandHandler>());
+
+// Ajout de FluentValidation
+builder.Services.AddValidatorsFromAssemblyContaining<CreateCharacterCommandValidator>();
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -51,6 +60,31 @@ builder.Services.AddSwaggerGen(options =>
         {
             Name = "DungeonCrawler Team",
             Email = "support@dungeoncrawler.com"
+        }
+    });
+    // Auth JWT dans Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Entrez 'Bearer {votre_token}' pour vous authentifier"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
         }
     });
 
@@ -128,6 +162,22 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "DungeonCrawler Game Service v1");
     });
 }
+
+// Permet de renvoyer une 400 bad request pour les erreur de validation FluentValidtion
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (FluentValidation.ValidationException ex)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.ContentType = "application/json";
+        var errors = ex.Errors.Select(e => new { e.PropertyName, e.ErrorMessage });
+        await context.Response.WriteAsJsonAsync(new { Errors = errors });
+    }
+});
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();

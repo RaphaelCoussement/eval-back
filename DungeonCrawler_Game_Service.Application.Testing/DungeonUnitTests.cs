@@ -1,4 +1,4 @@
-using DungeonCrawler_Game_Service.Application.Services;
+using DungeonCrawler_Game_Service.Application.Features.Dungeons.Commands;
 using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using Moq;
@@ -6,8 +6,13 @@ using Moq;
 namespace DungeonCrawler_Game_Service.Application.Testing
 {
     [TestFixture]
-    public class DungeonServiceTests
+    public class DungeonUnitTests
     {
+        /// <summary>
+        /// Test unitaire pour la génération d'un donjon avec plusieurs étages et salles.
+        /// Vérifie que le donjon contient entre 15 et 20 étages, que chaque étage (sauf le dernier) a entre 1 et 3 salles,
+        /// et que le dernier étage contient une salle de type Boss.
+        /// </summary>
         [Test]
         public async Task GenerateDungeonAsync_ShouldCreateDungeonWithLevelsAndRooms()
         {
@@ -19,10 +24,11 @@ namespace DungeonCrawler_Game_Service.Application.Testing
                 .Setup(uow => uow.GetRepository<Dungeon>())
                 .Returns(mockRepo.Object);
 
-            var service = new DungeonService(mockUnitOfWork.Object);
-
+            var handler = new GenerateDungeonCommandHandler(mockUnitOfWork.Object);
+            
+            
             // Act
-            var dungeon = await service.GenerateDungeonAsync();
+            var dungeon = await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
 
             // Assert
             Assert.That(dungeon, Is.Not.Null);
@@ -43,6 +49,10 @@ namespace DungeonCrawler_Game_Service.Application.Testing
             mockRepo.Verify(r => r.AddAsync(It.IsAny<Dungeon>()), Times.Once);
         }
         
+        /// <summary>
+        /// Teste unitaire pour vérifier que chaque salle (sauf celles du dernier étage) a un NextRoomId défini,
+        /// et que les salles du dernier étage n'ont pas de NextRoomId.
+        /// </summary>
         [Test]
         public async Task GenerateDungeonAsync_ShouldSetNextRoomIdCorrectly()
         {
@@ -54,11 +64,10 @@ namespace DungeonCrawler_Game_Service.Application.Testing
                 .Setup(uow => uow.GetRepository<Dungeon>())
                 .Returns(mockRepo.Object);
 
-            var service = new DungeonService(mockUnitOfWork.Object);
+            var handler = new GenerateDungeonCommandHandler(mockUnitOfWork.Object);
 
             // Act
-            var dungeon = await service.GenerateDungeonAsync();
-
+            var dungeon = await handler.Handle(new GenerateDungeonCommand(), CancellationToken.None);
             // Assert
             Assert.That(dungeon, Is.Not.Null);
 

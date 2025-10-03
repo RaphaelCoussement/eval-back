@@ -16,4 +16,15 @@
       <ProjectReference Include="..\DungeonCrawler_Game_Service.Infrastructure\DungeonCrawler_Game_Service.Infrastructure.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="FluentValidation" Version="12.0.0" />
+      <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
+      <PackageReference Include="MediatR" Version="13.0.0" />
+      <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Features\Characters\Queries\" />
+    </ItemGroup>
+
 </Project>

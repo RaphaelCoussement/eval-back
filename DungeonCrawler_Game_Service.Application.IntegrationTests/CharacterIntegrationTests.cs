@@ -1,5 +1,5 @@
 ﻿using DefaultNamespace;
-using DungeonCrawler_Game_Service.Application.Services;
+using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Mongo2Go;
@@ -10,7 +10,7 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
 {
 
     [TestFixture]
-    public class CharacterServiceIntegrationTests
+    public class CharacterIntegrationTests
     {
         private MongoDbRunner _mongoRunner;
         private IMongoDatabase _database;
@@ -18,8 +18,11 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
         // Dépendances injectées
         private IRepository<Character> _characterRepository;
         private IUnitOfWork _unitOfWork;
-        private CharacterService _characterService;
 
+        /// <summary>
+        /// Configuration avant chaque test, incluant le démarrage d'une instance MongoDB in-memory
+        /// et la création d'un repository concret pour les personnages.
+        /// </summary>
         [SetUp]
         public void Setup()
         {
@@ -36,9 +39,6 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
             unitOfWorkMock.Setup(uow => uow.GetRepository<Character>())
                 .Returns(_characterRepository);
             _unitOfWork = unitOfWorkMock.Object;
-
-            // CharacterService reçoit l'instance injectée
-            _characterService = new CharacterService(_unitOfWork);
         }
 
         [TearDown]
@@ -53,12 +53,18 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
         [Test]
         public async Task CreateCharacterAsync_ShouldPersistCharacterInDatabase()
         {
-            var character = await _characterService.CreateCharacterAsync("Hero", Classes.Warrior, "user-123");
-
+            //Arrange
+            var handler = new CreateCharacterCommandHandler(_unitOfWork);
+            var command = new CreateCharacterCommand{ Name = "Hero", ClassCode = 1, UserId = "68de2d850d723cd498ac3a0c" };
+            
+            //Act
+            var character = await handler.Handle(command, CancellationToken.None);
+            
+            //Assert
             Assert.That(character, Is.Not.Null);
             Assert.That(character.Name, Is.EqualTo("Hero"));
             Assert.That(character.Class, Is.EqualTo(Classes.Warrior));
-            Assert.That(character.UserId, Is.EqualTo("user-123"));
+            Assert.That(character.UserId, Is.EqualTo("68de2d850d723cd498ac3a0c"));
 
             var storedCharacter = await _characterRepository.GetByIdAsync(character.Id);
             Assert.That(storedCharacter, Is.Not.Null);
