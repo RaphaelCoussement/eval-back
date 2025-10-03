@@ -13,6 +13,9 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
         _validators = validators;
     }
 
+    /// <summary>
+    /// Permet de valider une requête avant qu'elle ne soit traitée par le gestionnaire (handler). (Pattern Pipeline de MediatR)
+    /// </summary>
     public async Task<TResponse> Handle(
         TRequest request, 
         RequestHandlerDelegate<TResponse> next, 

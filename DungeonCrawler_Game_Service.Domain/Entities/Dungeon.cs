@@ -11,4 +11,6 @@ public class Dungeon
     public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
 
     public List<Level> Levels { get; set; } = new();
+    
+    public List<RoomLink> Links { get; set; } = new();
 }

@@ -30,14 +30,19 @@ public class GenerateDungeonCommandHandler(
 
             int roomsInLevel;
 
-            if (levelIndex == levelsCount)
+            if (levelIndex == 1)
             {
-                // Dernier étage = boss (1 salle obligatoire)
+                // Premier étage = entrée, 1 salle obligatoire
+                roomsInLevel = 1;
+            }
+            else if (levelIndex == levelsCount)
+            {
+                // Dernier étage = boss 1 salle obligatoire
                 roomsInLevel = 1;
             }
             else
             {
-                // Tirage pondéré : favorise 3 salle (50% chance 3, 30% 2, 10% 3)
+                // Tirage pondéré pour les étages intermédiaires
                 int roll = _random.Next(100);
                 if (roll < 50)
                     roomsInLevel = 3;
@@ -47,15 +52,16 @@ public class GenerateDungeonCommandHandler(
                     roomsInLevel = 1;
             }
 
-            // Création des salles pour cet étage
             for (int i = 0; i < roomsInLevel; i++)
             {
                 var room = new Room
                 {
                     Id = $"{levelIndex}{(char)('a' + i)}",
-                    Type = levelIndex == levelsCount
-                        ? RoomType.Boss
-                        : GetRandomRoomType() // fonction pour tirer Monster, Treasure, Trap
+                    Type = levelIndex == 1
+                        ? RoomType.Entrance
+                        : levelIndex == levelsCount
+                            ? RoomType.Boss
+                            : GetRandomRoomType()
                 };
 
                 level.Rooms.Add(room);
@@ -81,9 +87,7 @@ public class GenerateDungeonCommandHandler(
             dungeon.Levels.Add(level);
         }
 
-        // Sauvegarde en base
         await _dungeonRepository.AddAsync(dungeon);
-
         return dungeon;
     }
     
