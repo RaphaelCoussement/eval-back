@@ -1,7 +1,6 @@
 ﻿using DefaultNamespace;
 using DungeonCrawler_Game_Service.Application.Contracts;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
-using DungeonCrawler_Game_Service.Models.Requests;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;

@@ -3,7 +3,6 @@ using DungeonCrawler_Game_Service.Application.Features.Dungeons.Commands;
 using DungeonCrawler_Game_Service.Application.Features.Dungeons.Queries;
 using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
-using DungeonCrawler_Game_Service.Models.Requests;
 using DungeonCrawler_Game_Service.Models.Responses;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
