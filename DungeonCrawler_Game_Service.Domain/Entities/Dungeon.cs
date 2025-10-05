@@ -8,9 +8,7 @@ public class Dungeon
 {
     [BsonId] // MongoDB Id
     [BsonRepresentation(BsonType.ObjectId)]
-    public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
-
+    public string Id { get; set; }
+    public string Seed { get; set; }
     public List<Level> Levels { get; set; } = new();
-    
-    public List<RoomLink> Links { get; set; } = new();
 }

@@ -1,17 +1,7 @@
 namespace DungeonCrawler_Game_Service.Domain.Entities;
 
-public class Room
+public abstract class Room
 {
-    public string Id { get; set; }
-    public string NextRoomId { get; set; }
-    public RoomType Type { get; set; }
-}
-
-public enum RoomType
-{
-    Monster,
-    Treasure,
-    Trap,
-    Boss,
-    Entrance,
+    public int Number { get; set; }
+    public bool Open { get; set; }
 }
