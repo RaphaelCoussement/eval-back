@@ -1,9 +1,10 @@
-using DungeonCrawler_Game_Service.Application.Contracts;
-using DungeonCrawler_Game_Service.Application.Features.Dungeons.Commands;
-using DungeonCrawler_Game_Service.Application.Features.Dungeons.Queries;
+using DungeonCrawler_Game_Service.Application.Features.EnterRoom.Queries;
+using DungeonCrawler_Game_Service.Application.Features.LinkRooms.Commands;
+using DungeonCrawler_Game_Service.Application.Features.NextRooms.Queries;
+using DungeonCrawler_Game_Service.Application.Features.ProceduralDungeons.Commands;
 using DungeonCrawler_Game_Service.Domain.Entities;
-using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
-using DungeonCrawler_Game_Service.Models.Responses;
+using DungeonCrawler_Game_Service.Domain.Models;
+using DungeonCrawler_Game_Service.Models;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,60 +12,53 @@ using Microsoft.AspNetCore.Mvc;
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
+[Route(ApiRoutes.Base)]
 [Authorize]
-[Route("api/[controller]")]
-public class DungeonController(
-    IMediator mediator
-    ) : ControllerBase
+public class DungeonController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
-    ///  Génération d'un donjon
+    ///  Génération d'un donjon procédural.
     /// </summary>
-    /// <returns>L'état de la requête</returns>
     [HttpPost]
-    public async Task<IActionResult> GenerateDungeon(GenerateDungeonCommand command)
+    [Route(ApiRoutes.GenerateDungeon)]
+    public async Task<ActionResult<Dungeon>> GenerateDungeon()
     {
-        var response = await _mediator.Send(command);
-        return Ok(response);
+        var dungeon = await _mediator.Send(new GenerateDungeonCommand());
+        return Ok(dungeon);
     }
 
     /// <summary>
-    ///  Récupère les salles suivantes possibles depuis une salle donnée dans un donjon.
+    ///  Entrer dans une salle du donjon.
     /// </summary>
-    /// <returns>La liste des rooms suivante</returns>
-    [HttpGet("{dungeonId}/room/{roomId}/next")]
-    public async Task<IActionResult> GetNextRooms(string dungeonId, string roomId)
+    [HttpPost]
+    [Route(ApiRoutes.EnterRoom)]
+    public async Task<ActionResult<RoomProgress>> EnterRoom([FromBody] EnterRoomQuery query)
     {
-        var response = await _mediator.Send(new GetNextRoomsQuery(dungeonId, roomId));
-        return Ok(response);
+        var result = await _mediator.Send(query);
+        return Ok(result);
     }
 
     /// <summary>
-    /// Permet d'entrer dans une salle spécifique d'un donjon.
+    ///  Récupère les salles accessibles depuis la salle actuelle.
     /// </summary>
-    /// <param name="dungeonId">Id du donjon concerné</param>
-    /// <returns>Létat de la requete</returns>
-    [HttpPost("{dungeonId}/enter")]
-    public async Task<IActionResult> EnterRoom(string dungeonId, [FromBody] EnterRoomQuery query)
+    [HttpGet]
+    [Route(ApiRoutes.NextRooms)]
+    public async Task<ActionResult<List<Room>>> GetNextRooms([FromQuery] string currentRoomId, [FromRoute] string dungeonId)
     {
-        // Assigne le dungeonId de la route au query
-        query.DungeonId = dungeonId;
-        var response = await _mediator.Send(query);
-        return Ok(response);
+        var result = await _mediator.Send(new GetNextRoomsQuery(dungeonId, currentRoomId));
+        return Ok(result);
     }
-    
+
     /// <summary>
-    /// Permet de lier des salles entre elles dans un donjon.
+    ///  Lie deux salles dans le donjon.
     /// </summary>
-    /// <returns>Le donjon</returns>
-    [HttpPost("link")]
-    public async Task<IActionResult> LinkRooms([FromBody] LinkRoomsCommand command)
+    [HttpPost]
+    [Route(ApiRoutes.LinkRooms)]
+    public async Task<ActionResult<Dungeon>> LinkRooms([FromBody] LinkRoomsCommand request)
     {
-        var response = await _mediator.Send(command);
-        return Ok(response);
+        var result = await _mediator.Send(request);
+        return Ok(result);
     }
-    
-    
 }
