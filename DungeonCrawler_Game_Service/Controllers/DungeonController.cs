@@ -4,15 +4,16 @@ using DungeonCrawler_Game_Service.Application.Features.NextRooms.Queries;
 using DungeonCrawler_Game_Service.Application.Features.ProceduralDungeons.Commands;
 using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Domain.Models;
-using DungeonCrawler_Game_Service.Models.Requests;
+using DungeonCrawler_Game_Service.Models;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-//[Authorize]
+[Route(ApiRoutes.Base)]
+[Authorize]
 public class DungeonController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
@@ -21,7 +22,7 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Génération d'un donjon procédural.
     /// </summary>
     [HttpPost]
-    [Route("")]
+    [Route(ApiRoutes.GenerateDungeon)]
     public async Task<ActionResult<Dungeon>> GenerateDungeon()
     {
         var dungeon = await _mediator.Send(new GenerateDungeonCommand());
@@ -32,10 +33,10 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Entrer dans une salle du donjon.
     /// </summary>
     [HttpPost]
-    [Route("enter")]
-    public async Task<ActionResult<RoomProgress>> EnterRoom([FromBody] EnterRoomRequest request)
+    [Route(ApiRoutes.EnterRoom)]
+    public async Task<ActionResult<RoomProgress>> EnterRoom([FromBody] EnterRoomQuery query)
     {
-        var result = await _mediator.Send(new EnterRoomQuery(request.DungeonId, request.NextRoomId));
+        var result = await _mediator.Send(query);
         return Ok(result);
     }
 
@@ -43,7 +44,7 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Récupère les salles accessibles depuis la salle actuelle.
     /// </summary>
     [HttpGet]
-    [Route("{dungeonId}/next")]
+    [Route(ApiRoutes.NextRooms)]
     public async Task<ActionResult<List<Room>>> GetNextRooms([FromQuery] string currentRoomId, [FromRoute] string dungeonId)
     {
         var result = await _mediator.Send(new GetNextRoomsQuery(dungeonId, currentRoomId));
@@ -54,10 +55,10 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Lie deux salles dans le donjon.
     /// </summary>
     [HttpPost]
-    [Route("link")]
-    public async Task<ActionResult<Dungeon>> LinkRooms([FromBody] LinkRoomsRequest request)
+    [Route(ApiRoutes.LinkRooms)]
+    public async Task<ActionResult<Dungeon>> LinkRooms([FromBody] LinkRoomsCommand request)
     {
-        var result = await _mediator.Send(new LinkRoomsCommand(request.DungeonId, request.FromRoomId, request.ToRoomId));
+        var result = await _mediator.Send(request);
         return Ok(result);
     }
 }
