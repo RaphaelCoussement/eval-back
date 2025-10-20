@@ -2,7 +2,7 @@ namespace DungeonCrawler_Game_Service.Models.Responses;
 
 public class DungeonResponse
 {
-    public string Id { get; set; }
+    public required string Id { get; set; }
     public List<LevelResponse> Levels { get; set; } = new();
 }
 

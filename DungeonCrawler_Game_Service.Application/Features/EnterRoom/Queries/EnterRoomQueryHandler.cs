@@ -13,6 +13,10 @@ public class EnterRoomQueryHandler(IUnitOfWork unitOfWork)
     public async Task<RoomProgress> Handle(EnterRoomQuery request, CancellationToken cancellationToken)
     {
         var dungeon = await _dungeonRepository.GetByIdAsync(request.DungeonId);
+        if (dungeon == null)
+        {
+            throw new KeyNotFoundException($"Dungeon {request.DungeonId} not found");
+        }
         var room = dungeon.Levels.SelectMany(l => l.Rooms).FirstOrDefault(r => r.Id == request.NextRoomId);
         var level = dungeon.Levels.FirstOrDefault(l => l.Rooms.Any(r => r.Id == request.NextRoomId));
 
@@ -21,6 +25,9 @@ public class EnterRoomQueryHandler(IUnitOfWork unitOfWork)
 
         switch (room)
         {
+            case null:
+                events.Add("La salle n'existe pas");
+                break;
             case CombatRoom combat when combat.MonsterNb > 0:
                 events.Add($"Vous affrontez {combat.MonsterNb} monstre(s) !");
                 break;

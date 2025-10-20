@@ -15,12 +15,10 @@ public class DungeonCrawlerDbContext : IdentityDbContext
     }
     
     // === DbSet principaux ===
-    
-    
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        base.OnModelCreating(modelBuilder);
+        base.OnModelCreating(builder);
 
-        modelBuilder.HasDefaultSchema("");
+        builder.HasDefaultSchema("");
     }
 }

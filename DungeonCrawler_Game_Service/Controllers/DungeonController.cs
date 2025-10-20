@@ -12,20 +12,18 @@ using Microsoft.AspNetCore.Mvc;
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
-[Route(ApiRoutes.Base)]
+[Route("api/[controller]")]
 [Authorize]
 public class DungeonController(IMediator mediator) : ControllerBase
 {
-    private readonly IMediator _mediator = mediator;
-
     /// <summary>
     ///  Génération d'un donjon procédural.
     /// </summary>
     [HttpPost]
-    [Route(ApiRoutes.GenerateDungeon)]
+    [Route("generate")]
     public async Task<ActionResult<Dungeon>> GenerateDungeon()
     {
-        var dungeon = await _mediator.Send(new GenerateDungeonCommand());
+        var dungeon = await mediator.Send(new GenerateDungeonCommand());
         return Ok(dungeon);
     }
 
@@ -33,10 +31,10 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Entrer dans une salle du donjon.
     /// </summary>
     [HttpPost]
-    [Route(ApiRoutes.EnterRoom)]
+    [Route("enter")]
     public async Task<ActionResult<RoomProgress>> EnterRoom([FromBody] EnterRoomQuery query)
     {
-        var result = await _mediator.Send(query);
+        var result = await mediator.Send(query);
         return Ok(result);
     }
 
@@ -44,10 +42,10 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Récupère les salles accessibles depuis la salle actuelle.
     /// </summary>
     [HttpGet]
-    [Route(ApiRoutes.NextRooms)]
+    [Route("{dungeonId:int}/next")]
     public async Task<ActionResult<List<Room>>> GetNextRooms([FromQuery] string currentRoomId, [FromRoute] string dungeonId)
     {
-        var result = await _mediator.Send(new GetNextRoomsQuery(dungeonId, currentRoomId));
+        var result = await mediator.Send(new GetNextRoomsQuery(dungeonId, currentRoomId));
         return Ok(result);
     }
 
@@ -55,10 +53,10 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Lie deux salles dans le donjon.
     /// </summary>
     [HttpPost]
-    [Route(ApiRoutes.LinkRooms)]
+    [Route("link")]
     public async Task<ActionResult<Dungeon>> LinkRooms([FromBody] LinkRoomsCommand request)
     {
-        var result = await _mediator.Send(request);
+        var result = await mediator.Send(request);
         return Ok(result);
     }
 }

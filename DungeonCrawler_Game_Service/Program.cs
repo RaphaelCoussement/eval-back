@@ -8,6 +8,7 @@ using System.Reflection;
 using DungeonCrawler_Game_Service.Application.Behavior;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Validators;
+using DungeonCrawler_Game_Service.Models;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -63,11 +64,11 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
     // Auth JWT dans Swagger
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.AddSecurityDefinition(AuthSchemes.Bearer, new OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
+        Scheme = AuthSchemes.Bearer,
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Entrez 'Bearer {votre_token}' pour vous authentifier"
@@ -81,7 +82,7 @@ builder.Services.AddSwaggerGen(options =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    Id = AuthSchemes.Bearer
                 }
             },
             Array.Empty<string>()
@@ -135,22 +136,20 @@ builder.Services.AddCors(options =>
 });
 
 // Configuration de l'authentification JWT avec Keycloak
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
+builder.Services.AddAuthentication(AuthSchemes.Bearer)
+    .AddJwtBearer(AuthSchemes.Bearer, options =>
     {
         options.Authority = "http://localhost:8080/realms/katakombs";
         options.RequireHttpsMetadata = false; // à true en production
         options.Audience = "katakombsId"; // audiance configurée dans Keycloak
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("ApiUser", policy =>
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("ApiUser", policy =>
     {
         policy.RequireAuthenticatedUser();
         policy.RequireClaim("preferred_username");
     });
-});
 
 var app = builder.Build();
 
@@ -190,26 +189,4 @@ app.MapGet("/secure", [Authorize(Policy = "ApiUser")] () =>
     return Results.Ok("Accès autorisé !");
 });
 
-app.Run();
-
-// Classes pour documenter Swagger
-public class MongoDbSettings
-{
-    public string ConnectionString { get; set; } = null!;
-    public string DatabaseName { get; set; } = null!;
-}
-
-public class ErrorResponse
-{
-    public string Code { get; set; } = null!;
-    public string Message { get; set; } = null!;
-}
-
-public class EventSchema
-{
-    public string EventId { get; set; } = null!;
-    public string EventVersion { get; set; } = null!;
-    public string EventType { get; set; } = null!;
-    public DateTime Timestamp { get; set; }
-    public object Data { get; set; } = null!;
-}
+await app.RunAsync();

@@ -15,8 +15,6 @@ public class CharacterController(
     IMediator mediator
     ) : ControllerBase
 {
-    private readonly IMediator _mediator = mediator;
-
     /// <summary>
     /// Création d'un personnage
     /// </summary>
@@ -25,7 +23,7 @@ public class CharacterController(
     [HttpPost]
     public async Task<IActionResult> CreateCharacter([FromBody] CreateCharacterCommand command)
     {
-        var response = await _mediator.Send(command);
+        var response = await mediator.Send(command);
         return Ok(response);
     }
 }

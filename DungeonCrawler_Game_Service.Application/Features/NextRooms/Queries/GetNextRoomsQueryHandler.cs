@@ -12,6 +12,10 @@ public class GetNextRoomsQueryHandler(IUnitOfWork unitOfWork)
     public async Task<List<Room>> Handle(GetNextRoomsQuery request, CancellationToken cancellationToken)
     {
         var dungeon = await _dungeonRepository.GetByIdAsync(request.DungeonId);
+        if (dungeon == null)
+        {
+            throw new KeyNotFoundException($"Dungeon {request.DungeonId} not found");
+        }
         
         var currentLevel = dungeon.Levels.FirstOrDefault(l => l.Rooms.Any(r => r.Id == request.CurrentRoomId));
         if (currentLevel == null) return new List<Room>();

@@ -20,23 +20,28 @@ public class CharacterUnitTests
 
         var mockUnitOfWork = new Mock<IUnitOfWork>();
         mockUnitOfWork.Setup(u => u.GetRepository<Character>()).Returns(mockRepo.Object);
-        
+
         var handler = new CreateCharacterCommandHandler(mockUnitOfWork.Object);
         var name = "TestHero";
         var characterClass = Classes.Warrior;
         var userId = "user-123";
 
-        var command = new CreateCharacterCommand{ Name = name, ClassCode = (int)characterClass, UserId = userId };
-        
+        var command = new CreateCharacterCommand { Name = name, ClassCode = (int)characterClass, UserId = userId };
+
         // Action testée
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assertions
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.Name, Is.EqualTo(name));
-        Assert.That(result.Class, Is.EqualTo(characterClass));
-        Assert.That(result.UserId, Is.EqualTo(userId));
-        mockRepo.Verify(r => r.AddAsync(It.Is<Character>(c => c.Name == name && c.Class == characterClass && c.UserId == userId)),
-            Times.Once);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Name, Is.EqualTo(name));
+            Assert.That(result.Class, Is.EqualTo(characterClass));
+            Assert.That(result.UserId, Is.EqualTo(userId));
+            mockRepo.Verify(
+                r => r.AddAsync(
+                    It.Is<Character>(c => c.Name == name && c.Class == characterClass && c.UserId == userId)),
+                Times.Once);
+        });
     }
 }

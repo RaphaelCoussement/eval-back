@@ -16,6 +16,7 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
     /// <summary>
     /// Permet de valider une requête avant qu'elle ne soit traitée par le gestionnaire (handler). (Pattern Pipeline de MediatR)
     /// </summary>
+    /// [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2016:ForwardCancellationTokenToInvocable", Justification = "MediatR RequestHandlerDelegate ne prend pas de token")]
     public async Task<TResponse> Handle(
         TRequest request, 
         RequestHandlerDelegate<TResponse> next, 

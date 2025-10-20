@@ -16,7 +16,7 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
         private IMongoDatabase _database;
 
         // Dépendances injectées
-        private IRepository<Character> _characterRepository;
+        private GenericRepository<Character> _characterRepository;
         private IUnitOfWork _unitOfWork;
 
         /// <summary>
@@ -59,18 +59,21 @@ namespace DungeonCrawler_Game_Service.Application.IntegrationTests
             
             //Act
             var character = await handler.Handle(command, CancellationToken.None);
+            var storedCharacter = await _characterRepository.GetByIdAsync(character.Id);
             
             //Assert
-            Assert.That(character, Is.Not.Null);
-            Assert.That(character.Name, Is.EqualTo("Hero"));
-            Assert.That(character.Class, Is.EqualTo(Classes.Warrior));
-            Assert.That(character.UserId, Is.EqualTo("68de2d850d723cd498ac3a0c"));
-
-            var storedCharacter = await _characterRepository.GetByIdAsync(character.Id);
             Assert.That(storedCharacter, Is.Not.Null);
-            Assert.That(storedCharacter.Id, Is.EqualTo(character.Id));
-            Assert.That(storedCharacter.Name, Is.EqualTo(character.Name));
-            Assert.That(storedCharacter.UserId, Is.EqualTo(character.UserId));
+            Assert.Multiple(() =>
+            {
+                Assert.That(character, Is.Not.Null);
+                Assert.That(character.Name, Is.EqualTo("Hero"));
+                Assert.That(character.Class, Is.EqualTo(Classes.Warrior));
+                Assert.That(character.UserId, Is.EqualTo("68de2d850d723cd498ac3a0c"));
+                
+                Assert.That(storedCharacter.Id, Is.EqualTo(character.Id));
+                Assert.That(storedCharacter.Name, Is.EqualTo(character.Name));
+                Assert.That(storedCharacter.UserId, Is.EqualTo(character.UserId));
+            });
         }
     }
-}
+} 

@@ -12,7 +12,11 @@ public class LinkRoomsCommandHandler(IUnitOfWork unitOfWork)
     public async Task<Dungeon> Handle(LinkRoomsCommand request, CancellationToken cancellationToken)
     {
         var dungeon = await _dungeonRepository.GetByIdAsync(request.DungeonId);
-
+        if (dungeon == null)
+        {
+            throw new KeyNotFoundException($"Dungeon {request.DungeonId} not found");
+        }
+        
         var linkExists = dungeon.Links.Any(l =>
             l.FromRoomId == request.FromRoomId && l.ToRoomId == request.ToRoomId);
 
