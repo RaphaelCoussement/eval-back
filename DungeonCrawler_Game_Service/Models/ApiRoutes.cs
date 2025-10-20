@@ -7,12 +7,15 @@ public static class ApiRoutes
 
     // Génération d'un donjon
     public const string GenerateDungeon = Dungeon;
+    
+    public const string GetDungeonById = Dungeon + "{id:int}/";
+    
 
     // Entrer dans une salle
     public const string EnterRoom = Dungeon + "/enter";
 
     // Récupérer les salles accessibles depuis la salle actuelle
-    public const string NextRooms = Dungeon + "/{dungeonId}/next";
+    public const string NextRooms = GetDungeonById + "next";
 
     // Lier deux salles
     public const string LinkRooms = Dungeon + "/link";
