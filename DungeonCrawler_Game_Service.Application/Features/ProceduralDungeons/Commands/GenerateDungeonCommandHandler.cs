@@ -1,107 +1,86 @@
-﻿using DefaultNamespace;
-using DungeonCrawler_Game_Service.Domain.Entities;
+﻿using DungeonCrawler_Game_Service.Domain.Entities;
+using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using MediatR;
 
 namespace DungeonCrawler_Game_Service.Application.Features.ProceduralDungeons.Commands;
 
+/// <summary>
+/// Génère un donjon procédural complet.
+/// Chaque étage contient un certain nombre de salles, et les liens sont créés
+/// de manière logique (aucun chemin forcé, exploration libre).
+/// </summary>
 public class GenerateDungeonCommandHandler : IRequestHandler<GenerateDungeonCommand, Dungeon>
 {
-    /// <summary>
-    /// Handler pour générer un nouveau donjon à partir d'une seed.
-    /// </summary>
-    /// <returns></returns>
-    public async Task<Dungeon> GenerateDungeon()
+    private readonly IRepository<Dungeon> _dungeonRepository;
+
+    public GenerateDungeonCommandHandler(IUnitOfWork unitOfWork)
     {
-        var seed = new Random().Next();
-        var generation = new Random(seed);
-
-        var levels = GenerateLevels(generation);
-
-        return new Dungeon
-        {
-            Seed = seed.ToString(),
-            Levels = levels,
-        };
+        _dungeonRepository = unitOfWork.GetRepository<Dungeon>()
+            ?? throw new ArgumentNullException(nameof(unitOfWork), "Repository Dungeon is null");
     }
 
-    private static List<Level> GenerateLevels(Random generation)
+    public async Task<Dungeon> Handle(GenerateDungeonCommand request, CancellationToken cancellationToken)
     {
-        int levelsNb = generation.Next(15, 21);
-        var levels = new List<Level>();
+        var rng = new Random();
+        var seed = rng.Next();
 
-        for (int x = 0; x < levelsNb; x++)
+        var dungeon = new Dungeon { Seed = seed.ToString() };
+
+        int levelsCount = rng.Next(10, 16);
+
+        for (int levelIndex = 1; levelIndex <= levelsCount; levelIndex++)
         {
-            List<Room> rooms;
+            var level = new Level { Number = levelIndex };
+            int roomsCount = GetRoomCount(levelIndex, levelsCount, rng);
 
-            if (x == levelsNb - 1) // Dernier niveau = Boss
+            for (int i = 0; i < roomsCount; i++)
             {
-                rooms = new List<Room>
-                {
-                    new BossRoom
-                    {
-                        Number = 1,
-                        Open = false,
-                        NameBoss = "Boss"
-                    }
-                };
-            }
-            else
-            {
-                rooms = GenerateRooms(generation);
+                var room = CreateRoom(levelIndex, levelsCount, rng, i);
+                level.Rooms.Add(room);
             }
 
-            levels.Add(new Level
+            dungeon.Levels.Add(level);
+        }
+        
+        await _dungeonRepository.AddAsync(dungeon);
+
+        return dungeon;
+    }
+
+    private static int GetRoomCount(int levelIndex, int totalLevels, Random rng)
+    {
+        if (levelIndex == 1 || levelIndex == totalLevels)
+            return 1;
+        return rng.Next(1, 4); // 3 max
+    }
+
+    private static Room CreateRoom(int levelIndex, int totalLevels, Random rng, int i)
+    {
+        Room room;
+
+        if (levelIndex == 1)
+        {
+            room = new CombatRoom { Type = RoomType.Entrance, MonsterNb = 0 };
+        }
+        else if (levelIndex == totalLevels)
+        {
+            room = new BossRoom { Type = RoomType.BossRoom, NameBoss = "Boss Final" };
+        }
+        else
+        {
+            int typeRoll = rng.Next(3);
+            room = typeRoll switch
             {
-                Number = x,
-                Rooms = rooms
-            });
+                0 => new CombatRoom { Type = RoomType.CombatRoom, MonsterNb = rng.Next(1, 4) },
+                1 => new TreasureRoom { Type = RoomType.TreasureRoom, Piece = rng.Next(1, 11) },
+                _ => new TrapRoom { Type = RoomType.TrapRoom, Damage = rng.Next(1, 6) }
+            };
         }
 
-        return levels;
-    }
+        room.Id = $"{levelIndex}{(char)('a' + i)}";
+        room.Number = i + 1;
+        room.Open = false;
 
-    private static List<Room> GenerateRooms(Random generation)
-    {
-        int roomsNb = generation.Next(1, 4);
-        var rooms = new List<Room>();
-
-        for (int i = 0; i < roomsNb; i++)
-        {
-            rooms.Add(CreateRoom(generation, i));
-        }
-
-        return rooms;
-    }
-
-    private static Room CreateRoom(Random generation, int number)
-    {
-        int roomType = generation.Next(1, 4);
-
-        return roomType switch
-        {
-            (int)RoomType.CombatRoom => new CombatRoom
-            {
-                Number = number,
-                Open = false,
-                MonsterNb = generation.Next(1, 4)
-            },
-            (int)RoomType.TreasureRoom => new TreasureRoom
-            {
-                Number = number,
-                Open = false,
-                Piece = generation.Next(1, 11)
-            },
-            _ => new TrapRoom
-            {
-                Number = number,
-                Open = false,
-                Degat = generation.Next(1, 6)
-            }
-        };
-    }
-
-    public Task<Dungeon> Handle(GenerateDungeonCommand request, CancellationToken cancellationToken)
-    {
-        return GenerateDungeon();
+        return room;
     }
 }

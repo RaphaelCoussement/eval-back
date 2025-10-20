@@ -2,5 +2,5 @@
 
 public class TrapRoom : Room
 {
-    public int Degat { get; set; }
+    public int Damage { get; set; }
 }

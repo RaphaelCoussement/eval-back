@@ -2,5 +2,5 @@
 
 public class BossRoom : Room
 {
-    public string NameBoss {get; set;}
+    public string NameBoss { get; set; } = "Boss";
 }
