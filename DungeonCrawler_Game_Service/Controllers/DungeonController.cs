@@ -42,7 +42,7 @@ public class DungeonController(IMediator mediator) : ControllerBase
     ///  Récupère les salles accessibles depuis la salle actuelle.
     /// </summary>
     [HttpGet]
-    [Route("{dungeonId:int}/next")]
+    [Route("{dungeonId}/next")]
     public async Task<ActionResult<List<Room>>> GetNextRooms([FromQuery] string currentRoomId, [FromRoute] string dungeonId)
     {
         var result = await mediator.Send(new GetNextRoomsQuery(dungeonId, currentRoomId));
