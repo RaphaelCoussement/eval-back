@@ -139,9 +139,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(AuthSchemes.Bearer)
     .AddJwtBearer(AuthSchemes.Bearer, options =>
     {
-        options.Authority = "http://localhost:8080/realms/katakombs";
-        options.RequireHttpsMetadata = false; // à true en production
-        options.Audience = "katakombsId"; // audiance configurée dans Keycloak
+        options.Authority = builder.Configuration["KeycloakSettings:Authority"];
+        options.Audience = builder.Configuration["KeycloakSettings:Audience"];
+        options.RequireHttpsMetadata = true; // à true en production
     });
 
 builder.Services.AddAuthorizationBuilder()

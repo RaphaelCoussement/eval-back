@@ -1,0 +1,8 @@
+**/bin
+**/obj
+**/node_modules
+**/.git
+**/.vs
+**/IntegrationTests
+**/DungeonCrawler_Game_Service.Application.IntegrationTests
+**/DungeonCrawler_Game_Service.Application.Testing
