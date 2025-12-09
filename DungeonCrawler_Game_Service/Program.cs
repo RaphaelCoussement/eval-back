@@ -1,19 +1,29 @@
-using DungeonCrawler_Game_Service.Application.Contracts;
+
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using System.Reflection;
+using System.Text.Json;
+using DungeonCrawler_Game_Service.Application;
 using DungeonCrawler_Game_Service.Application.Behavior;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Validators;
 using DungeonCrawler_Game_Service.Models;
+using DungeonCrawlerAssembly.Messages;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Rebus.Config;
+using Rebus.Routing.TypeBased;
+using Rebus.Config;
+using DungeonCrawler_Game_Service.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configuration MongoDB AVANT toute utilisation de MongoDB ou Rebus
+MongoDbConfiguration.Configure();
 
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
@@ -124,6 +134,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -139,7 +150,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(AuthSchemes.Bearer)
     .AddJwtBearer(AuthSchemes.Bearer, options =>
     {
-        options.Authority = "http://localhost:8080/realms/katakombs";
+        options.Authority = "https://keycloak.g4.diiage.ovh:8443/realms/katakombs";
         options.RequireHttpsMetadata = false; // à true en production
         options.Audience = "katakombsId"; // audiance configurée dans Keycloak
     });
@@ -151,7 +162,39 @@ builder.Services.AddAuthorizationBuilder()
         policy.RequireClaim("preferred_username");
     });
 
+builder.Services.AddRebus((configure, sp) =>
+{
+    var client = sp.GetRequiredService<IMongoClient>();
+    var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
+    var database = client.GetDatabase(settings.DatabaseName);
+    
+
+    return configure
+        .Routing(r =>
+            r.TypeBased().MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue"))
+        .Transport(t =>
+            t.UseRabbitMq(
+                builder.Configuration.GetConnectionString("RabbitMq"),
+                "rabbitmq-queue"))
+        .Sagas(s =>
+            s.StoreInMongoDb(
+                database,
+                type => "RebusSagas",
+                true));
+},
+    onCreated: async bus =>
+    {
+        // S'abonne aux messages de réponse des autres microservices
+        await bus.Subscribe<CharacterCreationConfirmed>();
+        await bus.Subscribe<CharacterCreationFailed>();
+    })
+    // Enregistre automatiquement tous les handlers (y compris les sagas) de l'assembly Application
+    .AutoRegisterHandlersFromAssemblyOf<ApplicationAssemblyReference>();
+
+
 var app = builder.Build();
+
+
 
 if (app.Environment.IsDevelopment())
 {
