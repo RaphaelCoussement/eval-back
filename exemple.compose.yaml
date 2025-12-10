@@ -1,0 +1,49 @@
+# Copy this file and rename to compose.yaml
+# Don't forget to complete the environment variables directly on this file for api and frontend services.
+services:
+  api:
+    image: dungeon-crawler-game-service
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - MongoDbSettings__ConnectionString=mongodb://admin:secret@mongo:27017
+      - KeycloakSettings__Authority=[replace me]
+      - KeycloakSettings__Audience=[replace me]
+      - KeycloakSettings__Realm=[replace me]
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  frontend:
+    image: harbor.g4.diiage.ovh:4443/dungeoncrawlerfront/develop@sha256:3c063213e2d8943a5ddfb20fa9ce28638f10300816aad8c692b06dc1b9805592
+    ports:
+      - "3000:80"
+    environment:
+      - NUXT_PUBLIC_AUTH_CALLBACK_URL=[replace me]
+      - NUXT_PUBLIC_KEYCLOAK_CLIENT_ID=[replace me]
+      - NUXT_PUBLIC_KEYCLOAK_CLIENT_SECRET=[replace me]
+      - NUXT_PUBLIC_KEYCLOAK_AUTH_URL=[replace me]
+      - NUXT_PUBLIC_KEYCLOAK_TOKEN_URL=[replace me]
+      - NUXT_PUBLIC_KEYCLOAK_PROFILE_URL=[replace me]
+      - NUXT_PUBLIC_KEYKLOAK_LOGOUT_URL=[replace me]
+      - NUXT_PUBLIC_API_URL=[replace me]
+    depends_on:
+      - api
+    restart: unless-stopped  
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=secret
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

@@ -374,3 +374,10 @@ FodyWeavers.xsd
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+
+# Fichiers Docker
+# Ignorer compose.yaml
+compose.yaml
+
+# Ne pas ignorer exemple.compose.yaml
+!exemple.compose.yaml
