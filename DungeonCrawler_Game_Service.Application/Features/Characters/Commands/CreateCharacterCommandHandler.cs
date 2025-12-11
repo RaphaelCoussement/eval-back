@@ -26,6 +26,8 @@ public class CreateCharacterCommandHandler(
         // Crée une nouvelle instance de Character avec les données de la requête
         var character = new Character{ Name = request.Name, Class = (Classes)request.ClassCode, UserId = request.UserId };
 
+        Console.WriteLine("Creating character {0} of class {1} for user {2}", character.Name, character.Class, character.UserId);
+        
         // Ajoute le personnage à la base de données via le repository
         await _characterRepository.AddAsync(character);
         

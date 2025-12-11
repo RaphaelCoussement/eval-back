@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("game/[controller]")]
 [Authorize]
 public class DungeonController(IMediator mediator) : ControllerBase
 {
