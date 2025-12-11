@@ -8,7 +8,7 @@ ARG NUGET_AUTH_TOKEN
 ENV NUGET_AUTH_TOKEN=$NUGET_AUTH_TOKEN
 
 # Copie du fichier de configuration NuGet à la racine du contexte
-COPY ["nuget.config", "."]
+COPY ["NuGet.config", "."]
 # ------------------------------------
 
 # Copie des fichiers de projet
