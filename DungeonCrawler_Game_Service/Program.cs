@@ -193,7 +193,7 @@ builder.Services.AddRebus((configure, sp) =>
 
 
 var app = builder.Build();
-
+app.UseCors("AllowAll");
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -219,7 +219,7 @@ app.Use(async (context, next) =>
     }
 });
 
-app.UseCors("AllowAll");
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
