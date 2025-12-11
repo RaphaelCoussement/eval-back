@@ -1,4 +1,3 @@
-
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Microsoft.Extensions.Options;
@@ -17,10 +16,11 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Rebus.Config;
 using Rebus.Routing.TypeBased;
-using Rebus.Config;
 using DungeonCrawler_Game_Service.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- 1. CONFIGURATION DES SERVICES ---
 
 // Configuration MongoDB AVANT toute utilisation de MongoDB ou Rebus
 MongoDbConfiguration.Configure();
@@ -45,8 +45,6 @@ builder.Services.AddScoped(sp =>
 
 // UnitOfWork scoped
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-
 
 // Ajout de MediatR
 builder.Services.AddMediatR(cfg =>
@@ -99,7 +97,7 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 
-    // Inclure les commentaires XML si tu veux des descriptions plus précises
+    // Inclure les commentaires XML
     var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
     if (File.Exists(xmlPath))
@@ -107,7 +105,7 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
     }
 
-    // Définition des schémas globaux
+    // Définition des schémas globaux Swagger
     options.MapType<ErrorResponse>(() => new OpenApiSchema
     {
         Type = "object",
@@ -134,15 +132,16 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-
+// Configuration CORS Correcte
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .WithOrigins("https://dev-katakombs.g4.diiage.ovh", "http://localhost:4200") // Origines explicites obligatoires avec AllowCredentials
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowAnyHeader()
+            .AllowCredentials(); 
     });
 });
 
@@ -162,12 +161,12 @@ builder.Services.AddAuthorizationBuilder()
         policy.RequireClaim("preferred_username");
     });
 
+// Configuration Rebus
 builder.Services.AddRebus((configure, sp) =>
 {
     var client = sp.GetRequiredService<IMongoClient>();
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
     var database = client.GetDatabase(settings.DatabaseName);
-    
 
     return configure
         .Routing(r =>
@@ -188,12 +187,13 @@ builder.Services.AddRebus((configure, sp) =>
         await bus.Subscribe<CharacterCreationConfirmed>();
         await bus.Subscribe<CharacterCreationFailed>();
     })
-    // Enregistre automatiquement tous les handlers (y compris les sagas) de l'assembly Application
+    // Enregistre automatiquement tous les handlers de l'assembly Application
     .AutoRegisterHandlersFromAssemblyOf<ApplicationAssemblyReference>();
 
 
 var app = builder.Build();
-app.UseCors("AllowAll");
+
+// Swagger en dev
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -203,7 +203,18 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Permet de renvoyer une 400 bad request pour les erreur de validation FluentValidtion
+// 1. Redirection HTTPS
+app.UseHttpsRedirection();
+
+// 2. CORS (Doit être avant Auth et avant les erreurs personnalisées)
+app.UseCors("AllowAll");
+
+// 3. Authentification & Autorisation
+app.UseAuthentication();
+app.UseAuthorization();
+
+// 4. Gestionnaire d'erreurs FluentValidation
+// Placé ici, il capture les erreurs des controlleurs, mais laisse passer les headers CORS ajoutés précédemment
 app.Use(async (context, next) =>
 {
     try
@@ -215,14 +226,12 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         context.Response.ContentType = "application/json";
         var errors = ex.Errors.Select(e => new { e.PropertyName, e.ErrorMessage });
+        // Les headers CORS sont déjà dans le contexte grâce au middleware UseCors placé plus haut
         await context.Response.WriteAsJsonAsync(new { Errors = errors });
     }
 });
 
-
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
+// 5. Mapping des controlleurs
 app.MapControllers();
 
 app.MapGet("/secure", [Authorize(Policy = "ApiUser")] () =>
