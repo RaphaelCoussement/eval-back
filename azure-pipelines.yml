@@ -45,7 +45,8 @@ stages:
               echo "DOCKER IMAGE NAME = "$(DOCKER_IMAGE_NAME)
               
               # On passe le System.AccessToken à l'argument défini dans le Dockerfile
-              docker build \
+              # --progress=plain permet de voir toute l'erreur en cas de pépin
+              docker build --progress=plain \
                 --build-arg NUGET_AUTH_TOKEN=$(System.AccessToken) \
                 -t $(DOCKER_IMAGE_NAME):latest .
             displayName: 'Docker Build'

@@ -2,6 +2,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
+# --- AUTHENTIFICATION NUGET ---
 # Récupération du token passé par le pipeline (--build-arg)
 ARG NUGET_AUTH_TOKEN
 # Injection en variable d'environnement pour que le nuget.config puisse le lire
@@ -9,7 +10,7 @@ ENV NUGET_AUTH_TOKEN=$NUGET_AUTH_TOKEN
 
 # Copie du fichier de configuration NuGet à la racine du contexte
 COPY ["NuGet.config", "."]
-# ------------------------------------
+# ------------------------------
 
 # Copie des fichiers de projet
 COPY ["DungeonCrawler_Game_Service/DungeonCrawler_Game_Service.csproj", "DungeonCrawler_Game_Service/"]
@@ -17,7 +18,7 @@ COPY ["DungeonCrawler_Game_Service.Application/DungeonCrawler_Game_Service.Appli
 COPY ["DungeonCrawler_Game_Service.Domain/DungeonCrawler_Game_Service.Domain.csproj", "DungeonCrawler_Game_Service.Domain/"]
 COPY ["DungeonCrawler_Game_Service.Infrastructure/DungeonCrawler_Game_Service.Infrastructure.csproj", "DungeonCrawler_Game_Service.Infrastructure/"]
 
-# Restauration des dépendances (utilisera le nuget.config et le token)
+# Restauration des dépendances (va maintenant chercher dans SharedPackages)
 RUN dotnet restore "DungeonCrawler_Game_Service/DungeonCrawler_Game_Service.csproj"
 
 # Copie du reste des fichiers et build en Release
