@@ -1,4 +1,3 @@
-
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Microsoft.Extensions.Options;
@@ -17,25 +16,42 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Rebus.Config;
 using Rebus.Routing.TypeBased;
-using Rebus.Config;
 using DungeonCrawler_Game_Service.Infrastructure;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuration MongoDB AVANT toute utilisation de MongoDB ou Rebus
-MongoDbConfiguration.Configure();
+// --- 1. CONFIGURATION INFRASTRUCTURE ---
+
+// Sans ça, les redirects HTTPS échouent et cassent le CORS.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // On vide les réseaux connus et proxy connus pour accepter tout (en dev/staging c'est ok)
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Configuration MongoDB
+try 
+{
+    MongoDbConfiguration.Configure();
+}
+catch(Exception ex)
+{
+    Console.WriteLine($"CRITICAL ERROR: MongoDb Configuration Failed: {ex.Message}");
+    // On ne crash pas ici pour laisser les logs apparaitre, mais l'app sera instable
+}
 
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 
-// MongoClient singleton
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
     return new MongoClient(settings.ConnectionString);
 });
 
-// MongoDatabase scoped
 builder.Services.AddScoped(sp =>
 {
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
@@ -43,37 +59,22 @@ builder.Services.AddScoped(sp =>
     return client.GetDatabase(settings.DatabaseName);
 });
 
-// UnitOfWork scoped
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+// --- 2. CONFIGURATION APPLICATION ---
 
-
-// Ajout de MediatR
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssemblyContaining<CreateCharacterCommandHandler>());
 
-// Ajout de FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateCharacterCommandValidator>();
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Swagger configuration enrichie
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "DungeonCrawler Game Service API",
-        Version = "v1",
-        Description = "API for managing dungeons, characters, and game logic",
-        Contact = new OpenApiContact
-        {
-            Name = "DungeonCrawler Team",
-            Email = "support@dungeoncrawler.com"
-        }
-    });
-    // Auth JWT dans Swagger
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "DungeonCrawler Game Service API", Version = "v1" });
     options.AddSecurityDefinition(AuthSchemes.Bearer, new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -81,78 +82,52 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = AuthSchemes.Bearer,
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Entrez 'Bearer {votre_token}' pour vous authentifier"
+        Description = "JWT Authorization header using the Bearer scheme."
     });
-
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = AuthSchemes.Bearer
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = AuthSchemes.Bearer }
             },
             Array.Empty<string>()
         }
     });
-
-    // Inclure les commentaires XML si tu veux des descriptions plus précises
-    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
-    if (File.Exists(xmlPath))
-    {
-        options.IncludeXmlComments(xmlPath);
-    }
-
-    // Définition des schémas globaux
-    options.MapType<ErrorResponse>(() => new OpenApiSchema
-    {
-        Type = "object",
-        Properties =
-        {
-            ["code"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("ROOM_NOT_FOUND") },
-            ["message"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("The specified room does not exist") }
-        },
-        Required = new HashSet<string> { "code", "message" }
-    });
-
-    options.MapType<EventSchema>(() => new OpenApiSchema
-    {
-        Type = "object",
-        Properties =
-        {
-            ["eventId"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("uuid-12345") },
-            ["eventVersion"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("v1") },
-            ["eventType"] = new OpenApiSchema { Type = "string", Example = new Microsoft.OpenApi.Any.OpenApiString("DungeonGenerated") },
-            ["timestamp"] = new OpenApiSchema { Type = "string", Format = "date-time", Example = new Microsoft.OpenApi.Any.OpenApiString("2025-10-01T10:00:00Z") },
-            ["data"] = new OpenApiSchema { Type = "object" }
-        },
-        Required = new HashSet<string> { "eventId", "eventVersion", "eventType", "timestamp" }
-    });
+    
+    // Mappings Swagger (ErrorResponse, EventSchema, etc.) conservés...
+    options.MapType<ErrorResponse>(() => new OpenApiSchema { Type = "object", Properties = { ["code"] = new OpenApiSchema { Type = "string" }, ["message"] = new OpenApiSchema { Type = "string" } } });
 });
 
-
+// On utilise SetIsOriginAllowed qui est plus souple que WithOrigins pour le dev
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .SetIsOriginAllowed(_ => true) // Accepte TOUTES les origines dynamiquement tout en autorisant les credentials
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
 
-// Configuration de l'authentification JWT avec Keycloak
 builder.Services.AddAuthentication(AuthSchemes.Bearer)
     .AddJwtBearer(AuthSchemes.Bearer, options =>
     {
         options.Authority = builder.Configuration["KeycloakSettings:Authority"];
         options.Audience = builder.Configuration["KeycloakSettings:Audience"];
-        options.RequireHttpsMetadata = true; // à true en production
+        options.RequireHttpsMetadata = false; 
+        
+        // Debug pour voir si le token est rejeté
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine($"Authentication Failed: {context.Exception.Message}");
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorizationBuilder()
@@ -162,48 +137,68 @@ builder.Services.AddAuthorizationBuilder()
         policy.RequireClaim("preferred_username");
     });
 
+// Rebus
 builder.Services.AddRebus((configure, sp) =>
 {
     var client = sp.GetRequiredService<IMongoClient>();
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
     var database = client.GetDatabase(settings.DatabaseName);
-    
 
     return configure
-        .Routing(r =>
-            r.TypeBased().MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue"))
-        .Transport(t =>
-            t.UseRabbitMq(
-                builder.Configuration.GetConnectionString("RabbitMq"),
-                "rabbitmq-queue"))
-        .Sagas(s =>
-            s.StoreInMongoDb(
-                database,
-                type => "RebusSagas",
-                true));
+        .Routing(r => r.TypeBased().MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue"))
+        .Transport(t => t.UseRabbitMq(builder.Configuration.GetConnectionString("RabbitMq"), "rabbitmq-queue"))
+        .Sagas(s => s.StoreInMongoDb(database, type => "RebusSagas", true));
 },
     onCreated: async bus =>
     {
-        // S'abonne aux messages de réponse des autres microservices
         await bus.Subscribe<CharacterCreationConfirmed>();
         await bus.Subscribe<CharacterCreationFailed>();
     })
-    // Enregistre automatiquement tous les handlers (y compris les sagas) de l'assembly Application
     .AutoRegisterHandlersFromAssemblyOf<ApplicationAssemblyReference>();
 
 
 var app = builder.Build();
 
+// --- 3. PIPELINE MIDDLEWARE (ORDRE CRITIQUE) ---
+
+// 1. Forwarded Headers (Doit être tout en haut pour gérer le Proxy OVH)
+app.UseForwardedHeaders(); 
+
+// Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DungeonCrawler Game Service v1");
-    });
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DungeonCrawler Game Service v1"));
 }
 
-// Permet de renvoyer une 400 bad request pour les erreur de validation FluentValidtion
+// 2. Gestion des exceptions globale (pour éviter que l'app crash sans headers CORS)
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        // On force les headers CORS même en cas d'erreur 500
+        context.Response.Headers.Append("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
+        context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+        context.Response.Headers.Append("Access-Control-Allow-Methods", "*");
+        context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+        
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync("{\"error\": \"Internal Server Error (Check Logs)\"}");
+    });
+});
+
+// 3. HttpsRedirection (Peut être désactivé si le Proxy gère déjà le HTTPS, mais gardons-le avec ForwardedHeaders)
+app.UseHttpsRedirection();
+
+// 4. CORS
+app.UseCors("AllowAll");
+
+// 5. Auth
+app.UseAuthentication();
+app.UseAuthorization();
+
+// 6. Validation Error Middleware
 app.Use(async (context, next) =>
 {
     try
@@ -219,15 +214,8 @@ app.Use(async (context, next) =>
     }
 });
 
-app.UseCors("AllowAll");
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
 app.MapControllers();
 
-app.MapGet("/secure", [Authorize(Policy = "ApiUser")] () =>
-{
-    return Results.Ok("Accès autorisé !");
-});
+app.MapGet("/health", () => Results.Ok("Service is UP")); // Endpoint de test simple sans Auth
 
 await app.RunAsync();

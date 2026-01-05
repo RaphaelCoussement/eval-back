@@ -1,5 +1,5 @@
 trigger:
-  - $(Build.SourceBranchName)
+  - develop
 
 pool:
   name: KataKombs
@@ -34,21 +34,24 @@ stages:
           # 1. Login Harbor
           - script: |
               echo "Connexion à Harbor..."
-              echo "Variables :"
-              echo "harbor pwd :" $(HARBOR_PASSWORD)
-              echo "harbor url :" $(HARBOR_URL)
-              echo "harbor username :" $(HARBOR_USERNAME)
               echo $(HARBOR_PASSWORD) | docker login $(HARBOR_URL) -u $(HARBOR_USERNAME) --password-stdin
             displayName: 'Docker Login'
             env:
               HARBOR_PASSWORD: $(HARBOR_PASSWORD)
 
+          # 2. Build avec injection du Token NuGet
           - script: |
               echo "Construction de l'image..."
               echo "DOCKER IMAGE NAME = "$(DOCKER_IMAGE_NAME)
-              docker build -t $(DOCKER_IMAGE_NAME):latest .
+              
+              # On passe le System.AccessToken à l'argument défini dans le Dockerfile
+              # --progress=plain permet de voir toute l'erreur en cas de pépin
+              docker build --progress=plain \
+                --build-arg NUGET_AUTH_TOKEN=$(System.AccessToken) \
+                -t $(DOCKER_IMAGE_NAME):latest .
             displayName: 'Docker Build'
 
+          # 3. Tagging
           - script: |
               COMMIT_ID=$(Build.SourceVersion)
               SHORT_COMMIT_ID=${COMMIT_ID:0:8}
@@ -57,6 +60,7 @@ stages:
               echo "##vso[task.setvariable variable=SHORT_COMMIT_ID]$SHORT_COMMIT_ID"
             displayName: 'Tag Docker Image'
 
+          # 4. Push
           - script: |
               echo "Envoi vers Harbor..."
               docker push $(DOCKER_IMAGE_NAME):latest
