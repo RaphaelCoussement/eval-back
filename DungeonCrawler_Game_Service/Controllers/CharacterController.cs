@@ -10,7 +10,7 @@ namespace DungeonCrawler_Game_Service.Controllers;
 
 [ApiController]
 //[Authorize]
-[Route("api/[controller]")]
+[Route("game/[controller]")]
 public class CharacterController(
     IMediator mediator
     ) : ControllerBase
