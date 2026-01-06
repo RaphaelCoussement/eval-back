@@ -26,6 +26,11 @@ public class Character
     public Classes Class { get; set; }
     
     /// <summary>
+    /// Skin active du personnage (identifiant du skin)
+    /// </summary>
+    public string ActiveSkinId { get; set; } = string.Empty;
+    
+    /// <summary>
     /// Identifiant Keycloak de l'utilisateur propriétaire du personnage (UUID Keycloak)
     /// </summary>
     public string UserId { get; set; } = string.Empty;
