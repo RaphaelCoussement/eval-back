@@ -1,16 +1,17 @@
-﻿
-using DefaultNamespace;
+﻿using DefaultNamespace;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawlerAssembly;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Rebus.Bus;
 
 namespace DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 
 public class CreateCharacterCommandHandler(
     IUnitOfWork unitOfWork,
-    IBus bus
+    IBus bus,
+    ILogger<CreateCharacterCommandHandler> logger
     ) : IRequestHandler<CreateCharacterCommand, Character>
 {
     private readonly IRepository<Character> _characterRepository = unitOfWork.GetRepository<Character>();
@@ -26,7 +27,8 @@ public class CreateCharacterCommandHandler(
         // Crée une nouvelle instance de Character avec les données de la requête
         var character = new Character{ Name = request.Name, Class = (Classes)request.ClassCode, UserId = request.UserId };
 
-        Console.WriteLine("Creating character {0} of class {1} for user {2}", character.Name, character.Class, character.UserId);
+        logger.LogInformation("Creating character {CharacterName} of class {CharacterClass} for user {UserId}", 
+            character.Name, character.Class, character.UserId);
         
         // Ajoute le personnage à la base de données via le repository
         await _characterRepository.AddAsync(character);
@@ -35,8 +37,11 @@ public class CreateCharacterCommandHandler(
         await bus.Publish(new CreateCharacterEvent
         {
             CharacterId = character.Id,
+            UserId = character.UserId,
         });
-        Console.WriteLine($"Created character {character.Name}");
+        
+        logger.LogInformation("Created character {CharacterName} with ID {CharacterId}", character.Name, character.Id);
+        
         return character;
     }
 }

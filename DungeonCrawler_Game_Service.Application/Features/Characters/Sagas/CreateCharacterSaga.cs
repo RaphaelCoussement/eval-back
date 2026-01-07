@@ -50,8 +50,10 @@ public class CreateCharacterSaga : Saga<CreateCharacterSagaData>,
     {
         // Enregistre les données initiales de la saga
         Data.CharacterId = message.CharacterId;
+        Data.UserId = message.UserId;
         Data.CreatedAt = DateTime.UtcNow;
-
+        
+        
         _logger.LogInformation(
             "Saga démarrée pour le personnage {CharacterId}. En attente de confirmation...",
             message.CharacterId);
@@ -71,6 +73,8 @@ public class CreateCharacterSaga : Saga<CreateCharacterSagaData>,
             "Création du personnage {CharacterId} confirmée par l'autre service. Message: {Message}",
             message.CharacterId,
             message.Message);
+        
+        _logger.LogInformation("CreateCharacterSaga started for CharacterId: {CharacterId}", message.CharacterId);
 
         Data.IsCompleted = true;
 
@@ -85,6 +89,8 @@ public class CreateCharacterSaga : Saga<CreateCharacterSagaData>,
     /// </summary>
     public async Task Handle(CharacterCreationFailed message)
     {
+        _logger.LogWarning("CreateCharacterSaga handling failed creation for CharacterId: {CharacterId}", message.CharacterId);
+        
         _logger.LogWarning(
             "Création du personnage {CharacterId} échouée. Raison: {Reason}. Exécution de la compensation...",
             message.CharacterId,

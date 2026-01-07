@@ -164,6 +164,7 @@ var app = builder.Build();
 // 1. Forwarded Headers (Doit être tout en haut pour gérer le Proxy OVH)
 app.UseForwardedHeaders(); 
 
+
 // Swagger
 if (app.Environment.IsDevelopment())
 {
