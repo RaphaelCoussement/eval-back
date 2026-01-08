@@ -1,5 +1,5 @@
 trigger:
-  - feature/telemetry
+  - develop
 
 pool:
   name: KataKombs
