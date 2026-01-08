@@ -1,50 +1,78 @@
 ﻿using DungeonCrawler_Game_Service.Domain.Entities;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace DungeonCrawler_Game_Service.Application.Features.ProceduralDungeons.Commands;
 
 /// <summary>
 /// Génère un donjon procédural complet.
-/// Chaque étage contient un certain nombre de salles, et les liens sont créés
-/// de manière logique (aucun chemin forcé, exploration libre).
 /// </summary>
 public class GenerateDungeonCommandHandler : IRequestHandler<GenerateDungeonCommand, Dungeon>
 {
     private readonly IRepository<Dungeon> _dungeonRepository;
+    private readonly ILogger<GenerateDungeonCommandHandler> _logger;
 
-    public GenerateDungeonCommandHandler(IUnitOfWork unitOfWork)
+    public GenerateDungeonCommandHandler(
+        IUnitOfWork unitOfWork,
+        ILogger<GenerateDungeonCommandHandler> logger)
     {
         _dungeonRepository = unitOfWork.GetRepository<Dungeon>()
             ?? throw new ArgumentNullException(nameof(unitOfWork), "Repository Dungeon is null");
+        _logger = logger;
     }
 
     public async Task<Dungeon> Handle(GenerateDungeonCommand request, CancellationToken cancellationToken)
     {
-        var rng = new Random();
-        var seed = rng.Next();
+        _logger.LogInformation("Starting Procedural Dungeon Generation...");
 
-        var dungeon = new Dungeon { Seed = seed.ToString() };
-
-        int levelsCount = rng.Next(10, 16);
-
-        for (int levelIndex = 1; levelIndex <= levelsCount; levelIndex++)
+        try
         {
-            var level = new Level { Number = levelIndex };
-            int roomsCount = GetRoomCount(levelIndex, levelsCount, rng);
+            var rng = new Random();
+            var seed = rng.Next();
+            
+            // 1. Log du Seed : CRITIQUE pour reproduire les bugs de génération
+            _logger.LogInformation("Dungeon Generation Configured with Seed: {Seed}", seed);
 
-            for (int i = 0; i < roomsCount; i++)
+            var dungeon = new Dungeon { Seed = seed.ToString() };
+
+            int levelsCount = rng.Next(10, 16);
+            int totalRoomsCreated = 0;
+
+            for (int levelIndex = 1; levelIndex <= levelsCount; levelIndex++)
             {
-                var room = CreateRoom(levelIndex, levelsCount, rng, i);
-                level.Rooms.Add(room);
+                var level = new Level { Number = levelIndex };
+                int roomsCount = GetRoomCount(levelIndex, levelsCount, rng);
+
+                for (int i = 0; i < roomsCount; i++)
+                {
+                    var room = CreateRoom(levelIndex, levelsCount, rng, i);
+                    level.Rooms.Add(room);
+                    totalRoomsCreated++;
+                }
+
+                dungeon.Levels.Add(level);
+                
+                // 2. Log de détail (Debug) : Pour suivre la boucle sans polluer la prod
+                _logger.LogDebug("Generated Level {LevelNumber}/{TotalLevels} with {RoomCount} rooms", levelIndex, levelsCount, roomsCount);
             }
+            
+            // 3. Persistance
+            await _dungeonRepository.AddAsync(dungeon);
 
-            dungeon.Levels.Add(level);
+            // 4. Log de résumé (Analytics)
+            // Donne une vue d'ensemble de la taille des donjons générés par le système
+            _logger.LogInformation("Dungeon {DungeonId} generated successfully. Stats: [Levels: {LevelCount}, Total Rooms: {TotalRooms}, Seed: {Seed}]", 
+                dungeon.Id, dungeon.Levels.Count, totalRoomsCreated, seed);
+
+            return dungeon;
         }
-        
-        await _dungeonRepository.AddAsync(dungeon);
-
-        return dungeon;
+        catch (Exception ex)
+        {
+            // 5. Log d'erreur
+            _logger.LogError(ex, "Procedural generation failed.");
+            throw;
+        }
     }
 
     private static int GetRoomCount(int levelIndex, int totalLevels, Random rng)

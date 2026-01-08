@@ -3,8 +3,6 @@ using DungeonCrawler_Game_Service.Infrastructure.Repositories;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
-using System.Reflection;
-using System.Text.Json;
 using DungeonCrawler_Game_Service.Application;
 using DungeonCrawler_Game_Service.Application.Behavior;
 using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
@@ -13,21 +11,58 @@ using DungeonCrawler_Game_Service.Models;
 using DungeonCrawlerAssembly.Messages;
 using FluentValidation;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Rebus.Config;
 using Rebus.Routing.TypeBased;
 using DungeonCrawler_Game_Service.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. CONFIGURATION INFRASTRUCTURE ---
+// =========================================================================
+// 1. CONFIGURATION OPENTELEMETRY (OBSERVABILITY)
+// =========================================================================
+
+// A. Configuration des LOGS (capture ILogger)
+builder.Logging.ClearProviders(); // Optionnel : nettoie les providers par défaut si tu ne veux que OTLP + Console
+builder.Logging.AddConsole();     // Garde la console pour le dev local
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.IncludeFormattedMessage = true;
+    logging.IncludeScopes = true;
+    logging.AddOtlpExporter(); // Lit automatiquement OTEL_EXPORTER_OTLP_ENDPOINT & OTEL_LOGS_EXPORTER
+});
+
+// B. Configuration des TRACES et METRICS
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(serviceName: builder.Environment.ApplicationName)) // Nom par défaut, écrasé par OTEL_SERVICE_NAME
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation() // Trace les Controllers/API
+            .AddHttpClientInstrumentation() // Trace les appels sortants (ex: vers Keycloak ou autre API)
+            .AddOtlpExporter();             // Envoie vers le collector Ops
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter();
+    });
+
+// =========================================================================
+// 2. CONFIGURATION INFRASTRUCTURE
+// =========================================================================
 
 // Sans ça, les redirects HTTPS échouent et cassent le CORS.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    // On vide les réseaux connus et proxy connus pour accepter tout (en dev/staging c'est ok)
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
 });
@@ -39,8 +74,9 @@ try
 }
 catch(Exception ex)
 {
+    // Ici, on utilise Console.WriteLine car le logger n'est pas encore totalement construit, 
+    // ou on pourrait récupérer un logger temporaire, mais Console est OK ici.
     Console.WriteLine($"CRITICAL ERROR: MongoDb Configuration Failed: {ex.Message}");
-    // On ne crash pas ici pour laisser les logs apparaitre, mais l'app sera instable
 }
 
 builder.Services.Configure<MongoDbSettings>(
@@ -61,7 +97,9 @@ builder.Services.AddScoped(sp =>
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-// --- 2. CONFIGURATION APPLICATION ---
+// =========================================================================
+// 3. CONFIGURATION APPLICATION
+// =========================================================================
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssemblyContaining<CreateCharacterCommandHandler>());
@@ -95,17 +133,15 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
     
-    // Mappings Swagger (ErrorResponse, EventSchema, etc.) conservés...
     options.MapType<ErrorResponse>(() => new OpenApiSchema { Type = "object", Properties = { ["code"] = new OpenApiSchema { Type = "string" }, ["message"] = new OpenApiSchema { Type = "string" } } });
 });
 
-// On utilise SetIsOriginAllowed qui est plus souple que WithOrigins pour le dev
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
         policy
-            .SetIsOriginAllowed(_ => true) // Accepte TOUTES les origines dynamiquement tout en autorisant les credentials
+            .SetIsOriginAllowed(_ => true)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -119,12 +155,13 @@ builder.Services.AddAuthentication(AuthSchemes.Bearer)
         options.Audience = builder.Configuration["KeycloakSettings:Audience"];
         options.RequireHttpsMetadata = false; 
         
-        // Debug pour voir si le token est rejeté
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
         {
             OnAuthenticationFailed = context =>
             {
-                Console.WriteLine($"Authentication Failed: {context.Exception.Message}");
+                // Modification ici : utiliser le Logger du context plutôt que Console.WriteLine
+                var logger = context.HttpContext.RequestServices.GetService<ILogger<Program>>();
+                logger?.LogError(context.Exception, "Authentication Failed");
                 return Task.CompletedTask;
             }
         };
@@ -145,6 +182,7 @@ builder.Services.AddRebus((configure, sp) =>
     var database = client.GetDatabase(settings.DatabaseName);
 
     return configure
+        .Logging(l => l.MicrosoftExtensionsLogging(sp.GetRequiredService<ILoggerFactory>())) // IMPORTANT : Connecter Rebus aux logs .NET
         .Routing(r => r.TypeBased().MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue"))
         .Transport(t => t.UseRabbitMq(builder.Configuration.GetConnectionString("RabbitMq"), "rabbitmq-queue"))
         .Sagas(s => s.StoreInMongoDb(database, type => "RebusSagas", true));
@@ -159,25 +197,31 @@ builder.Services.AddRebus((configure, sp) =>
 
 var app = builder.Build();
 
-// --- 3. PIPELINE MIDDLEWARE (ORDRE CRITIQUE) ---
+// =========================================================================
+// 4. PIPELINE MIDDLEWARE
+// =========================================================================
 
-// 1. Forwarded Headers (Doit être tout en haut pour gérer le Proxy OVH)
 app.UseForwardedHeaders(); 
 
-
-// Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DungeonCrawler Game Service v1"));
 }
 
-// 2. Gestion des exceptions globale (pour éviter que l'app crash sans headers CORS)
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        // On force les headers CORS même en cas d'erreur 500
+        // On log l'erreur ici aussi via ILogger
+        var logger = context.RequestServices.GetService<ILogger<Program>>();
+        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        
+        if (exceptionHandlerPathFeature?.Error != null)
+        {
+            logger?.LogError(exceptionHandlerPathFeature.Error, "Unhandled exception occurred.");
+        }
+
         context.Response.Headers.Append("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
         context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
         context.Response.Headers.Append("Access-Control-Allow-Methods", "*");
@@ -189,17 +233,11 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-// 3. HttpsRedirection (Peut être désactivé si le Proxy gère déjà le HTTPS, mais gardons-le avec ForwardedHeaders)
 app.UseHttpsRedirection();
-
-// 4. CORS
 app.UseCors("AllowAll");
-
-// 5. Auth
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 6. Validation Error Middleware
 app.Use(async (context, next) =>
 {
     try
@@ -208,6 +246,10 @@ app.Use(async (context, next) =>
     }
     catch (FluentValidation.ValidationException ex)
     {
+        // Tu peux logger les erreurs de validation en Warning si tu veux surveiller la qualité des données entrantes
+        var logger = context.RequestServices.GetService<ILogger<Program>>();
+        logger?.LogWarning("Validation failed: {ValidationErrors}", ex.Message);
+
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         context.Response.ContentType = "application/json";
         var errors = ex.Errors.Select(e => new { e.PropertyName, e.ErrorMessage });
@@ -216,7 +258,6 @@ app.Use(async (context, next) =>
 });
 
 app.MapControllers();
-
-app.MapGet("/health", () => Results.Ok("Service is UP")); // Endpoint de test simple sans Auth
+app.MapGet("/health", () => Results.Ok("Service is UP"));
 
 await app.RunAsync();
