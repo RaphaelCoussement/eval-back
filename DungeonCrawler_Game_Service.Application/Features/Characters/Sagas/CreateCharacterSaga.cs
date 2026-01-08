@@ -5,20 +5,16 @@ using DungeonCrawlerAssembly.Messages;
 using Microsoft.Extensions.Logging;
 using Rebus.Handlers;
 using Rebus.Sagas;
+
 namespace DungeonCrawler_Game_Service.Application.Features.Characters.Sagas;
 
 /// <summary>
-/// Saga pour gérer la création de personnage de manière transactionnelle entre microservices.
-/// 
-/// Flow:
-/// 1. Reçoit CreateCharacterEvent (publié par le CommandHandler)
-/// 2. Attend CharacterCreationConfirmed OU CharacterCreationFailed de l'autre microservice
-/// 3. Si échec → exécute la compensation (supprime le personnage)
+/// Saga pour gérer la création de personnage de manière transactionnelle.
 /// </summary>
 public class CreateCharacterSaga : Saga<CreateCharacterSagaData>,
-    IAmInitiatedBy<CreateCharacterEvent>,        // Démarre la saga
-    IHandleMessages<CharacterCreationConfirmed>, // Succès depuis l'autre service
-    IHandleMessages<CharacterCreationFailed>     // Échec depuis l'autre service
+    IAmInitiatedBy<CreateCharacterEvent>,        
+    IHandleMessages<CharacterCreationConfirmed>, 
+    IHandleMessages<CharacterCreationFailed>     
 {
     private readonly ILogger<CreateCharacterSaga> _logger;
     private readonly IUnitOfWork _unitOfWork;
@@ -31,83 +27,66 @@ public class CreateCharacterSaga : Saga<CreateCharacterSagaData>,
         _unitOfWork = unitOfWork;
     }
 
-    /// <summary>
-    /// Configure comment corréler les messages à cette instance de saga.
-    /// Tous les messages sont corrélés par CharacterId.
-    /// </summary>
     protected override void CorrelateMessages(ICorrelationConfig<CreateCharacterSagaData> config)
     {
-        // Le CharacterId est notre clé de corrélation
         config.Correlate<CreateCharacterEvent>(m => m.CharacterId, d => d.CharacterId);
         config.Correlate<CharacterCreationConfirmed>(m => m.CharacterId, d => d.CharacterId);
         config.Correlate<CharacterCreationFailed>(m => m.CharacterId, d => d.CharacterId);
     }
 
     /// <summary>
-    /// Étape 1: La saga démarre quand on reçoit l'événement de création
+    /// Étape 1: Démarrage
     /// </summary>
     public async Task Handle(CreateCharacterEvent message)
     {
-        // Enregistre les données initiales de la saga
+        // On initialise les données
         Data.CharacterId = message.CharacterId;
         Data.UserId = message.UserId;
         Data.CreatedAt = DateTime.UtcNow;
         
-        
-        _logger.LogInformation(
-            "Saga démarrée pour le personnage {CharacterId}. En attente de confirmation...",
-            message.CharacterId);
+        // LOG : Début de la transaction distribuée
+        // Important : On loggue le UserId pour pouvoir filtrer tous les logs d'un utilisateur spécifique dans OpenTelemetry
+        _logger.LogInformation("Saga Initiated: Waiting for confirmation for Character {CharacterId} (User: {UserId})", 
+            message.CharacterId, message.UserId);
 
-        // L'événement CreateCharacterEvent est déjà publié et sera reçu par l'autre microservice
-        // La saga attend maintenant une réponse (Confirmed ou Failed)
-        
         await Task.CompletedTask;
     }
 
     /// <summary>
-    /// Étape 2a: L'autre microservice confirme - Tout est OK!
+    /// Étape 2a: Succès
     /// </summary>
     public async Task Handle(CharacterCreationConfirmed message)
     {
-        _logger.LogInformation(
-            "Création du personnage {CharacterId} confirmée par l'autre service. Message: {Message}",
-            message.CharacterId,
-            message.Message);
-        
-        _logger.LogInformation("CreateCharacterSaga started for CharacterId: {CharacterId}", message.CharacterId);
-
         Data.IsCompleted = true;
 
-        // La saga est terminée avec succès - on la marque comme complète
+        // LOG : Fin heureuse de la transaction
+        _logger.LogInformation("Saga Completed Successfully: Character {CharacterId} confirmed by remote service. (Msg: {RemoteMessage})", 
+            message.CharacterId, message.Message);
+
         MarkAsComplete();
-        
         await Task.CompletedTask;
     }
 
     /// <summary>
-    /// Étape 2b: L'autre microservice signale un échec - On compense!
+    /// Étape 2b: Échec et Compensation
     /// </summary>
     public async Task Handle(CharacterCreationFailed message)
     {
-        _logger.LogWarning("CreateCharacterSaga handling failed creation for CharacterId: {CharacterId}", message.CharacterId);
-        
-        _logger.LogWarning(
-            "Création du personnage {CharacterId} échouée. Raison: {Reason}. Exécution de la compensation...",
-            message.CharacterId,
-            message.Reason);
-
         Data.IsFailed = true;
         Data.FailureReason = message.Reason;
 
-        // COMPENSATION: On annule la création du personnage
+        // LOG : Avertissement business (Transaction annulée)
+        _logger.LogWarning("Saga Rollback Triggered: Creation failed for Character {CharacterId}. Reason: {Reason}. Starting compensation...", 
+            message.CharacterId, message.Reason);
+
+        // Exécution de la compensation
         await CompensateCharacterCreation(message.CharacterId);
 
-        // La saga est terminée (en échec)
         MarkAsComplete();
     }
 
     /// <summary>
-    /// Compensation: Supprime le personnage créé localement
+    /// Compensation: Suppression locale
     /// </summary>
     private async Task CompensateCharacterCreation(string characterId)
     {
@@ -119,18 +98,23 @@ public class CreateCharacterSaga : Saga<CreateCharacterSagaData>,
             if (character != null)
             {
                 await repository.RemoveAsync(characterId);
-                _logger.LogInformation(
-                    "Compensation exécutée: Personnage {CharacterId} supprimé",
-                    characterId);
+                
+                // LOG : Confirmation que le nettoyage a fonctionné
+                _logger.LogInformation("Compensation Success: Local character {CharacterId} has been deleted to match remote failure.", characterId);
+            }
+            else
+            {
+                // Cas étrange mais pas bloquant : on devait supprimer un truc qui n'existe déjà plus
+                _logger.LogWarning("Compensation: Character {CharacterId} was already missing from DB.", characterId);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, 
-                "Erreur lors de la compensation pour le personnage {CharacterId}", 
-                characterId);
-            // En production, vous voudriez peut-être republier un message pour retry
+            // LOG : ERREUR CRITIQUE (DATA INCONSISTENCY)
+            // C'est le pire scénario : l'autre service a dit "non", mais nous on a échoué à supprimer le perso.
+            // Le perso existe donc chez nous mais pas chez eux. Il faut une alerte ici.
+            _logger.LogError(ex, "CRITICAL COMPENSATION FAILURE: Failed to delete Character {CharacterId}. Database is now in inconsistent state!", characterId);
+            
         }
     }
 }
-

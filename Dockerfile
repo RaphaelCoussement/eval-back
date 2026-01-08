@@ -38,5 +38,7 @@ COPY --from=build /app/publish .
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 
+ENV OTEL_SERVICE_NAME=dungeoncrawler-game-service
+
 # Point d'entrée
 ENTRYPOINT ["dotnet", "DungeonCrawler_Game_Service.dll"]
