@@ -1,6 +1,7 @@
 ﻿using DefaultNamespace;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawlerAssembly;
+using DungeonCrawlerAssembly.Messages;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Rebus.Bus;

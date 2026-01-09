@@ -184,6 +184,9 @@ builder.Services.AddRebus((configure, sp) =>
     return configure
         .Logging(l => l.MicrosoftExtensionsLogging(sp.GetRequiredService<ILoggerFactory>())) // IMPORTANT : Connecter Rebus aux logs .NET
         .Routing(r => r.TypeBased().MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue"))
+        .Routing(r => r.TypeBased()
+            .MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue")
+            .MapAssemblyOf<CharacterCreationConfirmed>("rabbitmq-queue")) // Mappe aussi les types du package externe
         .Transport(t => t.UseRabbitMq(builder.Configuration.GetConnectionString("RabbitMq"), "rabbitmq-queue"))
         .Sagas(s => s.StoreInMongoDb(database, type => "RebusSagas", true));
 },
