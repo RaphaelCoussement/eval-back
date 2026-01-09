@@ -2,6 +2,7 @@
 using DungeonCrawler_Game_Service.Application.Features.Characters.Commands;
 using DungeonCrawler_Game_Service.Infrastructure.Interfaces;
 using DungeonCrawlerAssembly;
+using DungeonCrawlerAssembly.Messages;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Rebus.Bus;

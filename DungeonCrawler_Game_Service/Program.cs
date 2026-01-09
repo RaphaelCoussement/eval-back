@@ -145,7 +145,9 @@ builder.Services.AddRebus((configure, sp) =>
     var database = client.GetDatabase(settings.DatabaseName);
 
     return configure
-        .Routing(r => r.TypeBased().MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue"))
+        .Routing(r => r.TypeBased()
+            .MapAssemblyOf<ApplicationAssemblyReference>("rabbitmq-queue")
+            .MapAssemblyOf<CharacterCreationConfirmed>("rabbitmq-queue")) // Mappe aussi les types du package externe
         .Transport(t => t.UseRabbitMq(builder.Configuration.GetConnectionString("RabbitMq"), "rabbitmq-queue"))
         .Sagas(s => s.StoreInMongoDb(database, type => "RebusSagas", true));
 },
