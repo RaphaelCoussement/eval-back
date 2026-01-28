@@ -13,21 +13,21 @@ COPY ["NuGet.config", "."]
 # ------------------------------
 
 # Copie des fichiers de projet
-COPY ["DungeonCrawler_Game_Service/DungeonCrawler_Game_Service.csproj", "DungeonCrawler_Game_Service/"]
-COPY ["DungeonCrawler_Game_Service.Application/DungeonCrawler_Game_Service.Application.csproj", "DungeonCrawler_Game_Service.Application/"]
-COPY ["DungeonCrawler_Game_Service.Domain/DungeonCrawler_Game_Service.Domain.csproj", "DungeonCrawler_Game_Service.Domain/"]
-COPY ["DungeonCrawler_Game_Service.Infrastructure/DungeonCrawler_Game_Service.Infrastructure.csproj", "DungeonCrawler_Game_Service.Infrastructure/"]
+COPY ["DungeonCrawler_Quests_Service/DungeonCrawler_Quests_Service.csproj", "DungeonCrawler_Quests_Service/"]
+COPY ["DungeonCrawler_Quests_Service.Application/DungeonCrawler_Quests_Service.Application.csproj", "DungeonCrawler_Quests_Service.Application/"]
+COPY ["DungeonCrawler_Quests_Service.Domain/DungeonCrawler_Quests_Service.Domain.csproj", "DungeonCrawler_Quests_Service.Domain/"]
+COPY ["DungeonCrawler_Quests_Service.Infrastructure/DungeonCrawler_Quests_Service.Infrastructure.csproj", "DungeonCrawler_Quests_Service.Infrastructure/"]
 
 # Restauration des dépendances (va maintenant chercher dans SharedPackages)
-RUN dotnet restore "DungeonCrawler_Game_Service/DungeonCrawler_Game_Service.csproj"
+RUN dotnet restore "DungeonCrawler_Quests_Service/DungeonCrawler_Quests_Service.csproj"
 
 # Copie du reste des fichiers et build en Release
 COPY . .
-WORKDIR "/src/DungeonCrawler_Game_Service"
-RUN dotnet build "DungeonCrawler_Game_Service.csproj" -c Release -o /app/build
+WORKDIR "/src/DungeonCrawler_Quests_Service"
+RUN dotnet build "DungeonCrawler_Quests_Service.csproj" -c Release -o /app/build
 
 # Phase de publication
-RUN dotnet publish "DungeonCrawler_Game_Service.csproj" -c Release -o /app/publish --no-restore
+RUN dotnet publish "DungeonCrawler_Quests_Service.csproj" -c Release -o /app/publish --no-restore
 
 # Phase de runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
@@ -41,4 +41,4 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV OTEL_SERVICE_NAME=dungeoncrawler-game-service
 
 # Point d'entrée
-ENTRYPOINT ["dotnet", "DungeonCrawler_Game_Service.dll"]
+ENTRYPOINT ["dotnet", "DungeonCrawler_Quests_Service.dll"]
